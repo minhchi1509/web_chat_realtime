@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator dbml {
+  provider              = "prisma-dbml-generator"
+  projectName           = "Web Chat Realtime"
+  projectDatabaseType   = "MySQL"
+  includeRelationFields = false
+}
+
+enum ConversationRole {
+  ADMIN
+  MEMBER
+}
+
+enum MessageMediaType {
+  PHOTO
+  VIDEO
+  AUDIO
+  FILE
+}
+
+model User {
+  id                    String  @id @default(uuid())
+  fullName              String  @map("full_name")
+  email                 String  @unique
+  password              String
+  avatar                String
+  isEnableTwoFactorAuth Boolean @default(false) @map("is_enable_two_factor_auth")
+
+  conversationParticipants ConversationParticipant[]
+
+  @@map("user")
+}
+
+model Conversation {
+  id          String   @id @default(uuid())
+  name        String?
+  thumbnail   String?
+  isGroupChat Boolean  @default(false) @map("is_group_chat")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  conversationParticipants ConversationParticipant[]
+  messages                 Message[]
+
+  @@map("conversation")
+}
+
+model Message {
+  id                          String   @id @default(uuid())
+  content                     String?  @db.LongText
+  createdAt                   DateTime @default(now()) @map("created_at")
+  isLastMessageOfConversation Boolean  @default(true) @map("is_last_message_of_conversation")
+  isShowSeperateTime          Boolean  @default(false) @map("is_show_seperate_time")
+
+  lastSeenBy    ConversationParticipant[] @relation("last_seen_message_by")
+  messageMedias MessageMedia[]
+
+  conversationId String       @map("conversation_id")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  senderId String                  @map("sender_id")
+  sender   ConversationParticipant @relation(name: "participant_sent_message", fields: [senderId], references: [id])
+
+  @@map("message")
+}
+
+model ConversationParticipant {
+  id                String           @id @default(uuid())
+  role              ConversationRole @default(MEMBER)
+  joinedAt          DateTime         @default(now()) @map("joined_at")
+  lastSeenMessageAt DateTime?        @map("last_seen_message_at")
+
+  sentMessages Message[] @relation("participant_sent_message")
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
+
+  conversationId String       @map("conversation_id")
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+
+  lastSeenMessageId String?  @map("last_seen_message_id")
+  lastSeenMessage   Message? @relation(name: "last_seen_message_by", fields: [lastSeenMessageId], references: [id])
+
+  @@unique([userId, conversationId])
+  @@map("conversation_participant")
+}
+
+model MessageMedia {
+  id       String           @id @default(uuid())
+  url      String
+  type     MessageMediaType
+  fileName String?          @map("file_name")
+
+  messageId String  @map("message_id")
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("message_media")
+}

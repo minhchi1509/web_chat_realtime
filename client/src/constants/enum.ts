@@ -1,0 +1,31 @@
+export enum ELoginType {
+  EMAIL_PASSWORD = 'EMAIL_PASSWORD',
+  GOOGLE = 'GOOGLE',
+  GITHUB = 'GITHUB'
+}
+
+export enum ELoginErrorType {
+  INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
+  REQUIRED_2FA_OTP = 'REQUIRED_2FA_OTP',
+  INVALID_2FA_OTP = 'INVALID_2FA_OTP',
+  REQUIRED_INITIALIZE_PASSWORD = 'REQUIRED_INITIALIZE_PASSWORD'
+}
+
+export enum EQueryKey {
+  USER_PROFILE = 'USER_PROFILE'
+}
+
+export enum EHttpStatusCode {
+  OK = 200,
+  BAD_REQUEST = 400,
+  UNAUTHORIZED = 401,
+  FORBIDDEN = 403,
+  NOT_FOUND = 404,
+  INTERNAL_SERVER_ERROR = 500
+}
+
+export enum ESocketEvent {
+  USER_ONLINE = 'user_online',
+  USER_OFFLINE = 'user_offline',
+  WS_EXCEPTION = 'ws_exception'
+}

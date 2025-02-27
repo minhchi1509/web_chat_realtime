@@ -1,0 +1,82 @@
+//// ------------------------------------------------------
+//// THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+//// ------------------------------------------------------
+
+Project "Web Chat Realtime" {
+  database_type: 'MySQL'
+  Note: ''
+}
+
+Table user {
+  id String [pk]
+  fullName String [not null]
+  email String [unique, not null]
+  password String [not null]
+  avatar String [not null]
+  isEnableTwoFactorAuth Boolean [not null, default: false]
+}
+
+Table conversation {
+  id String [pk]
+  name String
+  thumbnail String
+  isGroupChat Boolean [not null, default: false]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [default: `now()`, not null]
+}
+
+Table message {
+  id String [pk]
+  content String
+  createdAt DateTime [default: `now()`, not null]
+  isLastMessageOfConversation Boolean [not null, default: true]
+  isShowSeperateTime Boolean [not null, default: false]
+  conversationId String [not null]
+  senderId String [not null]
+}
+
+Table conversation_participant {
+  id String [pk]
+  role ConversationRole [not null, default: 'MEMBER']
+  joinedAt DateTime [default: `now()`, not null]
+  lastSeenMessageAt DateTime
+  userId String [not null]
+  conversationId String [not null]
+  lastSeenMessageId String
+
+  indexes {
+    (userId, conversationId) [unique]
+  }
+}
+
+Table message_media {
+  id String [pk]
+  url String [not null]
+  type MessageMediaType [not null]
+  fileName String
+  messageId String [not null]
+}
+
+Enum ConversationRole {
+  ADMIN
+  MEMBER
+}
+
+Enum MessageMediaType {
+  PHOTO
+  VIDEO
+  AUDIO
+  FILE
+}
+
+Ref: message.conversationId > conversation.id [delete: No Action]
+
+Ref: message.senderId > conversation_participant.id
+
+Ref: conversation_participant.userId > user.id
+
+Ref: conversation_participant.conversationId > conversation.id
+
+Ref: conversation_participant.lastSeenMessageId > message.id
+
+Ref: message_media.messageId > message.id [delete: Cascade]

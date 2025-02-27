@@ -1,0 +1,21 @@
+export type IEnvironmentVariables = {
+  NODE_ENV: 'development' | 'production';
+  NEST_SERVER_PORT: number;
+  DATABASE_URL: string;
+  ACCESS_TOKEN_SECRET: string;
+  REFRESH_TOKEN_SECRET: string;
+  REDIS_HOST: string;
+  REDIS_PORT: number;
+  REDIS_PASSWORD: string;
+  MAIL_HOST: string;
+  MAIL_PORT: number;
+  MAIL_USER: string;
+  MAIL_PASSWORD: string;
+  RESET_PASSWORD_TOKEN_SECRET: string;
+  CLIENT_URL: string;
+  CLOUDINARY_NAME: string;
+  CLOUDINARY_API_KEY: string;
+  CLOUDINARY_API_SECRET: string;
+  GOOGLE_AUTH_CLIENT_ID: string;
+  GOOGLE_AUTH_CLIENT_SECRET: string;
+};
