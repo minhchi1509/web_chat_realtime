@@ -3,6 +3,7 @@ import React, { FC, useRef } from 'react';
 
 import { Button, ButtonProps } from 'src/components/ui/shadcn-ui/button';
 import { showErrorToast } from 'src/utils/toast.util';
+import { validateUploadFiles } from 'src/utils/validations/file-validation';
 
 interface IUploadFileButtonProps extends ButtonProps {
   className?: string;
@@ -35,29 +36,17 @@ const UploadFileButton: FC<IUploadFileButtonProps> = ({
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = event.target.files;
     if (!fileList) return;
-    if (
-      fileList.length > maxFiles ||
-      (uploadedFilesLength && uploadedFilesLength + fileList.length > maxFiles)
-    ) {
-      showErrorToast(`You can only upload ${maxFiles} files at a time`);
-      return;
-    }
-    if (acceptedFileTypes) {
-      const isInvalidFileType = Array.from(fileList).some((file) => {
-        const fileType = file.type;
-        return !acceptedFileTypes.includes(fileType);
-      });
-      if (isInvalidFileType) {
-        showErrorToast('Invalid file type');
-        return;
+    const { isValid, errorMessage } = validateUploadFiles(
+      Array.from(fileList),
+      uploadedFilesLength || 0,
+      {
+        maxFiles,
+        maxFileSize,
+        acceptedFileTypes
       }
-    }
-    const files = Array.from(fileList);
-    const isOverSize = files.some((file) => file.size > maxFileSize);
-    if (isOverSize) {
-      showErrorToast(
-        `File size should not exceed ${maxFileSize / 1024 / 1024}MB`
-      );
+    );
+    if (!isValid) {
+      showErrorToast(errorMessage);
       return;
     }
     onFileChange(event);

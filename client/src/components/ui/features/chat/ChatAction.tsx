@@ -23,14 +23,17 @@ import { showErrorToast } from 'src/utils/toast.util';
 interface IChatActionProps {
   conversationId: string;
   showElement: boolean;
+  messageFiles: TUploadFile[];
+  setMessageFiles: React.Dispatch<React.SetStateAction<TUploadFile[]>>;
 }
 
 const ChatAction: FC<IChatActionProps> = ({
+  messageFiles,
+  setMessageFiles,
   showElement = true,
   conversationId
 }) => {
   const [message, setMessage] = React.useState<string>('');
-  const [messageFiles, setMessageFiles] = React.useState<TUploadFile[]>([]);
   const inputMessageRef = React.useRef<HTMLInputElement>(null);
 
   const handleChangeFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -86,7 +89,6 @@ const ChatAction: FC<IChatActionProps> = ({
         'flex flex-col p-2 border-t border-muted',
         !showElement && 'hidden'
       )}
-      id="message-action-container"
     >
       {messageFiles.length > 0 && (
         <ScrollArea className="max-w-4xl" scrollViewPortClassName="py-2">
@@ -142,7 +144,6 @@ const ChatAction: FC<IChatActionProps> = ({
           maxFiles={MAX_MESSAGE_FILE_PER_UPLOAD}
           uploadedFilesLength={messageFiles.length}
         />
-        <input type="file" style={{ display: 'none' }} />
         <Input
           className="flex-1 focus-visible:ring-transparent"
           placeholder="Type your message here"

@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, XIcon } from 'lucide-react';
 import Image from 'next/image';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { A11y, Navigation, Pagination } from 'swiper/modules';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Swiper as SwiperCore } from 'swiper/types';
@@ -31,6 +31,21 @@ const FullScreenMediaSlider: React.FC<FullScreenMediaSliderProps> = ({
   const [isEnd, setIsEnd] = useState(false);
   const [isBeginning, setIsBeginning] = useState(true);
   const swiperRef = useRef<SwiperCore>();
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') {
+        swiperRef.current?.slideNext();
+      } else if (e.key === 'ArrowLeft') {
+        swiperRef.current?.slidePrev();
+      } else if (e.key === 'Escape') {
+        onOpenChange(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90">
@@ -72,11 +87,6 @@ const FullScreenMediaSlider: React.FC<FullScreenMediaSliderProps> = ({
                 className="mx-auto max-h-[calc(100vh-50px)] max-w-full object-contain"
               />
             ) : (
-              // <StreamMessageVideo
-              //   mediaId={media.id}
-              //   // eslint-disable-next-line tailwindcss/no-custom-classname
-              //   className="swiper-no-swiping mx-auto aspect-video max-h-[calc(100vh-50px)] max-w-full"
-              // />
               <VideoPlayer
                 option={{
                   url: media.url,
@@ -90,7 +100,7 @@ const FullScreenMediaSlider: React.FC<FullScreenMediaSliderProps> = ({
           </SwiperSlide>
         ))}
       </Swiper>
-      <div className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
         <p className="text-base font-medium text-[hsl(240,5%,64.9%)]">
           {activeIndex + 1}/{mediaList.length}
         </p>

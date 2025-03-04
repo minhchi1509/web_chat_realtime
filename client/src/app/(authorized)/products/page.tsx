@@ -61,11 +61,27 @@ const ProductsPage = () => {
           <div className="p-2">Siuuuu</div>
         </NeonGradientCard> */}
         {/* <MagicCard className="h-[228px] w-[384px]" /> */}
-        <div className="group flex h-fit w-full max-w-3xl gap-3 bg-red-300 p-3">
-          <div className="h-80 flex-1 shrink-0 bg-teal-400 duration-300 group-hover:opacity-80 group-hover:hover:scale-105 group-hover:hover:opacity-100"></div>
-          <div className="h-80 flex-1 shrink-0 bg-teal-400 duration-300 hover:scale-110"></div>
-          <div className="h-80 flex-1 shrink-0 bg-teal-400 duration-300 hover:scale-110"></div>
-          <div className="h-80 flex-1 shrink-0 bg-teal-400 duration-300 hover:scale-110"></div>
+        {/* <div className="group flex h-fit w-full max-w-3xl gap-3 bg-red-300 p-3">
+          <div className="h-80 flex-1 shrink-0 bg-teal-400 duration-300 group-hover:opacity-20 group-hover:hover:scale-110 group-hover:hover:opacity-100"></div>
+          <div className="h-80 flex-1 shrink-0 bg-teal-400 duration-300 group-hover:opacity-20 group-hover:hover:scale-110 group-hover:hover:opacity-100"></div>
+          <div className="h-80 flex-1 shrink-0 bg-teal-400 duration-300 group-hover:opacity-20 group-hover:hover:scale-110 group-hover:hover:opacity-100"></div>
+          <div className="h-80 flex-1 shrink-0 bg-teal-400 duration-300 group-hover:opacity-20 group-hover:hover:scale-110 group-hover:hover:opacity-100"></div>
+        </div> */}
+        <div className="relative flex h-[650px] w-full max-w-3xl flex-col overflow-auto bg-red-700">
+          <div className="sticky top-0 z-10 h-16 bg-teal-400"></div>
+          <div className="flex flex-1">
+            <div className="w-[120px] bg-yellow-400"></div>
+            <div className="flex-1 bg-purple-700">
+              {Array.from({ length: 10 }, (_, i) => (
+                <div key={i}>
+                  Lorem ipsum dolor sit amet consectetur adipisicing elit.
+                  Veniam ipsa maxime officia? Dolor enim in, beatae qui, eius
+                  tenetur veritatis architecto eaque culpa voluptates quod ab
+                  necessitatibus ipsam voluptas quibusdam!
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </PlayholderContent>
     </div>
