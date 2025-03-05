@@ -35,9 +35,6 @@ const ConversationList = () => {
             </div>
           )}
           <InfiniteScroller
-            dataLength={allFetchedConversations.pages.reduce((acc, cur) => {
-              return acc + cur.data.length;
-            }, 0)}
             fetchNextPage={fetchNextPage}
             hasNextPage={hasNextPage}
             className="flex flex-1 flex-col gap-2 overflow-auto"

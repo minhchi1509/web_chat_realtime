@@ -1,11 +1,10 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 import React from 'react';
+import { useInView } from 'react-intersection-observer';
 
 import LoadingSpinner from 'src/components/ui/shared/LoadingSpinner';
 import { cn } from 'src/utils/common.util';
 
 interface InfiniteScrollProps extends React.HTMLAttributes<HTMLDivElement> {
-  dataLength: number;
   fetchNextPage: () => Promise<any>;
   hasNextPage: boolean;
   loadingMessage?: React.ReactNode;
@@ -21,29 +20,20 @@ const InfiniteScroller = React.forwardRef<HTMLDivElement, InfiniteScrollProps>(
       loadingMessage,
       children,
       className,
-      dataLength,
       ...props
     },
     ref
   ) => {
-    const observerTargetRef = React.useRef(null);
+    const { ref: observerRef, inView } = useInView({
+      threshold: 1
+    });
 
     React.useEffect(() => {
-      const observer = new IntersectionObserver(
-        async (entries) => {
-          if (entries[0]?.isIntersecting && hasNextPage) {
-            await fetchNextPage();
-          }
-        },
-        { threshold: 1 }
-      );
-
-      if (observerTargetRef.current) {
-        observer.observe(observerTargetRef.current);
+      if (inView && hasNextPage) {
+        fetchNextPage();
       }
-
-      return () => observer.disconnect();
-    }, [hasNextPage, dataLength]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [inView, hasNextPage]);
 
     return (
       <div ref={ref} {...props} className={cn('scrollbar', className)}>
@@ -53,7 +43,7 @@ const InfiniteScroller = React.forwardRef<HTMLDivElement, InfiniteScrollProps>(
             <LoadingSpinner className="size-4" />
           </div>
         )}
-        <div ref={observerTargetRef} />
+        <div ref={observerRef} />
       </div>
     );
   }

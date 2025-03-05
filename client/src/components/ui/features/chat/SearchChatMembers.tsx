@@ -76,9 +76,6 @@ const SearchChatMembers = () => {
           {allFetchedChatMembers && (
             <InfiniteScroller
               className="h-72 overflow-auto p-2"
-              dataLength={allFetchedChatMembers.pages.reduce((acc, cur) => {
-                return acc + cur.data.length;
-              }, 0)}
               hasNextPage={hasNextPage}
               fetchNextPage={fetchNextPage}
             >

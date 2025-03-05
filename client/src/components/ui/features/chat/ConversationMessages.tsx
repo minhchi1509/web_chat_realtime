@@ -65,40 +65,51 @@ const ConversationMessages: FC<IConversationMessagesProps> = ({
     data: conversationMessages,
     isLoading: isGettingConversationMessages,
     fetchNextPage: fetchNextPageMessages,
-    hasNextPage: hasMoreMessages,
-    isFetchingNextPage: isFetchingNextPageMessages
+    hasNextPage: hasMoreMessages
   } = useGetConversationMessages(conversationId, {});
+
+  const handleChangeMessageFiles = async (files: File[]) => {
+    const { isValid, errorMessage } = validateUploadFiles(
+      files,
+      sendMessageFiles.length,
+      {
+        maxFiles: MAX_MESSAGE_FILE_PER_UPLOAD,
+        maxFileSize: MAX_MESSAGE_FILE_SIZE
+      }
+    );
+    if (!isValid) {
+      showErrorToast(errorMessage);
+      return;
+    }
+    const newFiles = await Promise.all(
+      Array.from(files).map(async (file) => {
+        const isVideoFile = file.type.includes('video/');
+        const isImageFile = file.type.includes('image/');
+        return {
+          id: uuidv4(),
+          originalFileObject: file,
+          previewUrl: isImageFile
+            ? URL.createObjectURL(file)
+            : isVideoFile
+              ? await getVideoPoster(file, 0.5)
+              : ''
+        };
+      })
+    );
+    setSendMessageFiles([...sendMessageFiles, ...newFiles]);
+  };
+
+  const handleRemoveMessageFile = (id: string) => {
+    const removeMessageFile = sendMessageFiles.find((file) => file.id === id);
+    if (removeMessageFile) {
+      URL.revokeObjectURL(removeMessageFile.previewUrl);
+      setSendMessageFiles(sendMessageFiles.filter((file) => file.id !== id));
+    }
+  };
 
   const { getRootProps, isDragActive } = useDropzone({
     onDrop: async (files: File[]) => {
-      const { isValid, errorMessage } = validateUploadFiles(
-        files,
-        sendMessageFiles.length,
-        {
-          maxFiles: MAX_MESSAGE_FILE_PER_UPLOAD,
-          maxFileSize: MAX_MESSAGE_FILE_SIZE
-        }
-      );
-      if (!isValid) {
-        showErrorToast(errorMessage);
-        return;
-      }
-      const newFiles = await Promise.all(
-        Array.from(files).map(async (file) => {
-          const isVideoFile = file.type.includes('video/');
-          const isImageFile = file.type.includes('image/');
-          return {
-            id: uuidv4(),
-            originalFileObject: file,
-            previewUrl: isImageFile
-              ? URL.createObjectURL(file)
-              : isVideoFile
-                ? await getVideoPoster(file, 0.5)
-                : ''
-          };
-        })
-      );
-      setSendMessageFiles([...sendMessageFiles, ...newFiles]);
+      await handleChangeMessageFiles(files);
     }
   });
 
@@ -172,9 +183,6 @@ const ConversationMessages: FC<IConversationMessagesProps> = ({
           )}
 
           <InfiniteScroller
-            dataLength={conversationMessages.pages.reduce((acc, cur) => {
-              return acc + cur.data.length;
-            }, 0)}
             fetchNextPage={fetchNextPageMessages}
             hasNextPage={hasMoreMessages}
             className="flex flex-1 flex-col-reverse gap-2 overflow-auto p-4 pb-2"
@@ -343,7 +351,9 @@ const ConversationMessages: FC<IConversationMessagesProps> = ({
 
           <ChatAction
             messageFiles={sendMessageFiles}
-            setMessageFiles={setSendMessageFiles}
+            onChangeFiles={handleChangeMessageFiles}
+            onRemoveFile={handleRemoveMessageFile}
+            onRemoveAllFiles={() => setSendMessageFiles([])}
             showElement={
               !isGettingConversationDetails && !isGettingConversationMessages
             }

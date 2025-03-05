@@ -4,7 +4,6 @@ import { useMutation } from '@tanstack/react-query';
 import { FileText, Play, Send, XIcon } from 'lucide-react';
 import Image from 'next/image';
 import React, { FC } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 
 import { sendMessage } from 'src/actions/chat.actions';
 import { Button } from 'src/components/ui/shadcn-ui/button';
@@ -17,19 +16,23 @@ import {
 } from 'src/constants/variables';
 import { TUploadFile } from 'src/types/common.type';
 import { TErrorResponse } from 'src/types/error-response.type';
-import { cn, executeServerAction, getVideoPoster } from 'src/utils/common.util';
+import { cn, executeServerAction } from 'src/utils/common.util';
 import { showErrorToast } from 'src/utils/toast.util';
 
 interface IChatActionProps {
   conversationId: string;
   showElement: boolean;
   messageFiles: TUploadFile[];
-  setMessageFiles: React.Dispatch<React.SetStateAction<TUploadFile[]>>;
+  onChangeFiles: (files: File[]) => void;
+  onRemoveFile: (fileId: string) => void;
+  onRemoveAllFiles: () => void;
 }
 
 const ChatAction: FC<IChatActionProps> = ({
   messageFiles,
-  setMessageFiles,
+  onChangeFiles,
+  onRemoveFile,
+  onRemoveAllFiles,
   showElement = true,
   conversationId
 }) => {
@@ -39,29 +42,8 @@ const ChatAction: FC<IChatActionProps> = ({
   const handleChangeFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    const newFiles = await Promise.all(
-      Array.from(files).map(async (file) => {
-        const isVideoFile = file.type.includes('video/');
-        const isImageFile = file.type.includes('image/');
-        return {
-          id: uuidv4(),
-          originalFileObject: file,
-          previewUrl: isImageFile
-            ? URL.createObjectURL(file)
-            : isVideoFile
-              ? await getVideoPoster(file, 0.5)
-              : ''
-        };
-      })
-    );
-    setMessageFiles([...messageFiles, ...newFiles]);
+    onChangeFiles(Array.from(files));
     inputMessageRef.current?.focus();
-  };
-
-  const handleRemoveFile = (id: string) => {
-    const removeMessageFile = messageFiles.find((file) => file.id === id);
-    removeMessageFile && URL.revokeObjectURL(removeMessageFile.previewUrl);
-    setMessageFiles(messageFiles.filter((file) => file.id !== id));
   };
 
   const { isPending: isSendingMessage, mutate: sendConversationMessage } =
@@ -79,7 +61,7 @@ const ChatAction: FC<IChatActionProps> = ({
       },
       onSuccess: () => {
         setMessage('');
-        setMessageFiles([]);
+        onRemoveAllFiles();
       }
     });
 
@@ -124,7 +106,7 @@ const ChatAction: FC<IChatActionProps> = ({
                   )}
                   <div
                     className="absolute -right-2 -top-2 size-fit rounded-full bg-muted p-1 duration-200 hover:cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600"
-                    onClick={() => handleRemoveFile(file.id)}
+                    onClick={() => onRemoveFile(file.id)}
                   >
                     <XIcon size={12} />
                   </div>
