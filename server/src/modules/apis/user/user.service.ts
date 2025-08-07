@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException
 } from '@nestjs/common';
+import { Response } from 'express';
 import { authenticator } from 'otplib';
 import qrcode from 'qrcode';
 
@@ -20,6 +21,7 @@ import { UpdateProfileBodyDTO } from 'src/modules/apis/user/dto/update-profile/U
 import { UpdateProfileResponseDTO } from 'src/modules/apis/user/dto/update-profile/UpdateProfileResponse.dto';
 import { BcryptService } from 'src/modules/libs/bcrypt/bcrypt.service';
 import { CloudinaryService } from 'src/modules/libs/cloudinary/cloudinary.service';
+import { CookiesService } from 'src/modules/libs/cookies/cookies.service';
 import { RedisService } from 'src/modules/libs/redis/redis.service';
 
 @Injectable()
@@ -29,7 +31,8 @@ export class UserService {
     @Inject(EProviderKey.PRISMA_PROVIDER)
     private prismaService: TExtendedPrismaClient,
     private bcryptService: BcryptService,
-    private redisService: RedisService
+    private redisService: RedisService,
+    private cookiesService: CookiesService
   ) {}
 
   editProfile = async (
@@ -84,7 +87,7 @@ export class UserService {
       throw new BadRequestException('Old password is incorrect');
     }
     const hashedPassword = await this.bcryptService.hash(newPassword);
-    const updatedUser = await this.prismaService.user.update({
+    const _updatedUser = await this.prismaService.user.update({
       where: { id: userId },
       data: {
         password: hashedPassword
@@ -206,8 +209,13 @@ export class UserService {
     };
   };
 
-  logout = async (userId: string): Promise<MessageResponseDTO> => {
+  logout = async (
+    userId: string,
+    res: Response
+  ): Promise<MessageResponseDTO> => {
     await this.redisService.deleteUserRefreshToken(userId);
+    this.cookiesService.clearAuthCookies(res);
+
     return {
       message: 'Logout successfully'
     };

@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
 import { WinstonModule } from 'nest-winston';
 
 import { AppModule } from './app.module';
@@ -18,17 +19,19 @@ async function bootstrap() {
   });
   const configService = app.get(ConfigService<IEnvironmentVariables>);
   const nestServerPort = configService.get<number>('NEST_SERVER_PORT')!;
+  const serverHost = configService.get<string>('SERVER_BASE_URL')!;
 
   app.setGlobalPrefix('api/v1');
-  app.enableCors({ origin: '*' });
+  app.enableCors({
+    origin: ['http://localhost:3000', 'https://web-chat.minhchi.id.vn'],
+    credentials: true
+  });
+  app.use(cookieParser());
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('/', app, document, swaggerOptions);
+  SwaggerModule.setup('api/v1/swagger', app, document, swaggerOptions);
 
   await app.listen(nestServerPort);
-  Logger.log(
-    `Server is running on: http://localhost:${nestServerPort}`,
-    bootstrap.name
-  );
+  Logger.log(`Server is running on: ${serverHost}`, bootstrap.name);
 }
 bootstrap();

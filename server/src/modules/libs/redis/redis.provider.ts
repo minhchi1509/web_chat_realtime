@@ -20,7 +20,7 @@ export class RedisProvider extends Redis implements OnModuleInit {
 
   async onModuleInit() {
     try {
-      const redisInfo = await this.info();
+      const _redisInfo = await this.info();
       await this.config('SET', 'notify-keyspace-events', 'KEA');
       this.logger.log('🚀 Connect to Redis successfully!');
     } catch (error) {

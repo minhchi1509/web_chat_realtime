@@ -3,8 +3,8 @@ import { io, Socket } from 'socket.io-client';
 
 import SocketErrorListening from 'src/components/ui/shared/SocketErrorListening';
 import LoadingStatus from 'src/components/ui/shared/status/LoadingStatus';
-import useSessionUser from 'src/hooks/useSessionUser';
-import { useSocketStore } from 'src/hooks/zustand/useSocketStore';
+import { env } from 'src/configs/env.config';
+import { useSocketStore } from 'src/store/useSocketStore';
 
 interface IWebSocketProps extends PropsWithChildren {
   namespace: string;
@@ -18,15 +18,15 @@ const WebSocket: React.FC<IWebSocketProps> = ({
 }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const { addSocket, removeSocket } = useSocketStore();
-  const user = useSessionUser();
-  const url = process.env.NEXT_PUBLIC_API_URL || '';
+  const url = env.NEXT_PUBLIC_API_URL || '';
 
   useEffect(() => {
     if (!socket) {
-      const accessToken = user.accessToken;
       const newSocket = io(`${url}${namespace}`, {
-        extraHeaders: { Authorization: `Bearer ${accessToken}` }
+        withCredentials: true,
+        autoConnect: false
       });
+      newSocket.connect();
       setSocket(newSocket);
       addSocket(namespace, newSocket);
     } else if (!socket.connected) {
@@ -41,15 +41,7 @@ const WebSocket: React.FC<IWebSocketProps> = ({
         onSocketUnmounted?.(socket);
       }
     };
-  }, [
-    namespace,
-    socket,
-    addSocket,
-    removeSocket,
-    url,
-    user,
-    onSocketUnmounted
-  ]);
+  }, [namespace, socket, addSocket, removeSocket, url, onSocketUnmounted]);
 
   return (
     <>

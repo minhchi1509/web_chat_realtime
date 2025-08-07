@@ -11,6 +11,7 @@
 - Send images & videos: users can share photos and videos within the chat.
 - Send documents & other files: supports file sharing, including PDFs, word documents, and other formats.
 - Preview media files: allows users to preview images and videos directly in the chat.
+- User can drop emotion to message like Messenger
 - Dark/light mode.
 
 ## 2. Techstack
@@ -21,18 +22,18 @@
 
 ## 3. Database ERD
 
-![1740534607505](image/README/1740534607505.png)
+![1754580469278](image/README/1754580469278.png)
 
 ## 4. How to run
 
-- First, you need to create a `.env` file following the structure of the `.env.example` file.
-- Then, run server:
+- First, you must fill env file at: `./client/docker/prod/.env.prod`, `./server/docker/prod/.env.prod`, `.env.compose`
+- Then, run docker compose:
   ```bash
-  docker compose -f docker-compose.backend.yaml up --build -d
+  docker compose --env-file .env.compose up --build -d
   ```
-- And client:
+- And if you want to down compose:
   ```bash
-  docker compose -f docker-compose.frontend.yaml up --build -d
+  docker compose --env-file .env.compose down
   ```
 
 ## 4. Demo

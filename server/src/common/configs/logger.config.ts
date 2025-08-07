@@ -5,7 +5,7 @@ const defaultFormat = format.combine(
   format.timestamp({ format: 'DD/MM/YYYY, HH:mm:ss    ' }),
   format.label({ label: 'NestServer' }),
   format.printf((info) => {
-    const { label, timestamp, level, context, message, ...args } = info;
+    const { label, timestamp, level, context, message } = info;
     return `[${label}] - ${timestamp}[${level}] [${context}] ${message}`;
   })
 );

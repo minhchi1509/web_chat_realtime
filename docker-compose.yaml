@@ -1,0 +1,65 @@
+services:
+  web_chat_client:
+    container_name: web_chat_client
+    build:
+      context: ./client
+      dockerfile: docker/prod/Dockerfile
+    env_file: ./client/docker/prod/.env.prod
+    environment:
+      - PORT=3000
+    networks:
+      - web_chat_networks
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  chat_server:
+    depends_on:
+      - mysql_server
+      - redis_server
+    container_name: chat_server
+    restart: always
+    build:
+      context: ./server
+      dockerfile: docker/prod/Dockerfile
+    env_file: ./server/docker/prod/.env.prod
+    networks:
+      - web_chat_networks
+    stdin_open: true
+    tty: true
+    ports:
+      - "8080:8080"
+
+  mysql_server:
+    image: mysql:latest
+    container_name: mysql_server
+    restart: always
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE_NAME}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - web_chat_networks
+
+  redis_server:
+    image: redis:7.2-alpine
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    container_name: redis_server
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - web_chat_networks
+
+networks:
+  web_chat_networks:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:

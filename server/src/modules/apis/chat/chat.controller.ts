@@ -1,5 +1,13 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards
+} from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { plainToInstance } from 'class-transformer';
 
 import {
@@ -10,10 +18,13 @@ import {
 import { UserId } from 'src/common/decorators/request-object.decorator';
 import { PaginationQueryDTO } from 'src/common/dto/PaginationQuery.dto';
 import { PaginationResponseDTO } from 'src/common/dto/PaginationResponse.dto';
+import { ConversationPolicyGuard } from 'src/common/guards/conversation-policy.guard';
 import { plainToInstancePaginationResponse } from 'src/common/utils/common.util';
 import { ChatService } from 'src/modules/apis/chat/chat.service';
 import { CreatePrivateChatBodyDTO } from 'src/modules/apis/chat/dto/create-private-chat/CreatePrivateChatBody.dto';
 import { CreatePrivateChatResponseDTO } from 'src/modules/apis/chat/dto/create-private-chat/CreatePrivateChatResponse.dto';
+import { DropMessageEmotionBodyDTO } from 'src/modules/apis/chat/dto/drop-message-emotion/DropMessageEmotionBody.dto';
+import { DropMessageEmotionResponseDTO } from 'src/modules/apis/chat/dto/drop-message-emotion/DropMessageEmotionResponse.dto';
 import { GetChatMemberResponseDTO } from 'src/modules/apis/chat/dto/get-chat-members/GetChatMemberResponse.dto';
 import { GetChatMembersQueryDTO } from 'src/modules/apis/chat/dto/get-chat-members/GetChatMembersQuery.dto';
 import { GetConversationDetailsResponseDTO } from 'src/modules/apis/chat/dto/get-conversation-details/GetConversationDetailsResponse.dto';
@@ -24,7 +35,6 @@ import { SendConversationMessageResponseDTO } from 'src/modules/apis/chat/dto/se
 
 @Controller('chat')
 @ApiTags('Chat')
-@ApiBearerAuth()
 @ApiExceptionResponse()
 export class ChatController {
   constructor(private chatService: ChatService) {}
@@ -71,6 +81,7 @@ export class ChatController {
   }
 
   @Get('/:conversationId/details')
+  @UseGuards(ConversationPolicyGuard)
   async getConversationDetails(
     @Param('conversationId') conversationId: string,
     @UserId() userId: string
@@ -83,6 +94,7 @@ export class ChatController {
   }
 
   @Post('/:conversationId/send-message')
+  @UseGuards(ConversationPolicyGuard)
   @UseFormData()
   async sendConversationMessage(
     @Param('conversationId') conversationId: string,
@@ -98,6 +110,7 @@ export class ChatController {
   }
 
   @Get('/:conversationId/messages')
+  @UseGuards(ConversationPolicyGuard)
   @ApiOkResponsePaginated(GetConversationMessageResponseDTO)
   async getConversationMessages(
     @Param('conversationId') conversationId: string,
@@ -113,5 +126,22 @@ export class ChatController {
       GetConversationMessageResponseDTO,
       messages
     );
+  }
+
+  @Post('/:conversationId/messages/:messageId/drop-emotion')
+  @UseGuards(ConversationPolicyGuard)
+  async dropMessageEmotion(
+    @Param('conversationId') conversationId: string,
+    @Param('messageId') messageId: string,
+    @Body() body: DropMessageEmotionBodyDTO,
+    @UserId() userId: string
+  ): Promise<DropMessageEmotionResponseDTO> {
+    const droppedEmotion = await this.chatService.dropMessageEmotion(
+      conversationId,
+      messageId,
+      userId,
+      body.emotionType
+    );
+    return plainToInstance(DropMessageEmotionResponseDTO, droppedEmotion);
   }
 }

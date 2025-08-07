@@ -1,12 +1,13 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { NestjsFormDataModule } from 'nestjs-form-data';
 
 import { ChatController } from 'src/modules/apis/chat/chat.controller';
 import { ChatService } from 'src/modules/apis/chat/chat.service';
+import { CaslAbilityFactoryModule } from 'src/modules/libs/casl/ability-factory.module';
 import { CloudinaryModule } from 'src/modules/libs/cloudinary/cloudinary.module';
 import { PrismaModule } from 'src/modules/libs/prisma/prisma.module';
 import { RedisModule } from 'src/modules/libs/redis/redis.module';
-import { WebSocketModule } from 'src/modules/libs/web-socket/web-socket.module';
+import { ChatSocketModule } from 'src/modules/web-socket/chat/chat-socket.module';
 
 @Module({
   imports: [
@@ -14,7 +15,8 @@ import { WebSocketModule } from 'src/modules/libs/web-socket/web-socket.module';
     RedisModule,
     NestjsFormDataModule,
     CloudinaryModule,
-    forwardRef(() => WebSocketModule)
+    ChatSocketModule,
+    CaslAbilityFactoryModule
   ],
   controllers: [ChatController],
   providers: [ChatService],

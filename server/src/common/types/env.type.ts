@@ -1,6 +1,7 @@
 export type IEnvironmentVariables = {
   NODE_ENV: 'development' | 'production';
   NEST_SERVER_PORT: number;
+  SERVER_BASE_URL: string;
   DATABASE_URL: string;
   ACCESS_TOKEN_SECRET: string;
   REFRESH_TOKEN_SECRET: string;
@@ -12,10 +13,15 @@ export type IEnvironmentVariables = {
   MAIL_USER: string;
   MAIL_PASSWORD: string;
   RESET_PASSWORD_TOKEN_SECRET: string;
+  INIT_OAUTH_PASSWORD_TOKEN_SECRET: string;
+  TWO_FACTOR_AUTH_TOKEN_SECRET: string;
   CLIENT_URL: string;
   CLOUDINARY_NAME: string;
   CLOUDINARY_API_KEY: string;
   CLOUDINARY_API_SECRET: string;
   GOOGLE_AUTH_CLIENT_ID: string;
   GOOGLE_AUTH_CLIENT_SECRET: string;
+  FIREBASE_PROJECT_ID: string;
+  FIREBASE_PRIVATE_KEY: string;
+  FIREBASE_CLIENT_EMAIL: string;
 };

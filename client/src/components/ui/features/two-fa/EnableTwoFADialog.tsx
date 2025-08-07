@@ -5,7 +5,6 @@ import { Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { Dispatch, FC, SetStateAction, useEffect, useState } from 'react';
 
-import { enable2FA, generate2FA } from 'src/actions/user.actions';
 import { Button } from 'src/components/ui/shadcn-ui/button';
 import {
   Dialog,
@@ -21,7 +20,7 @@ import {
 } from 'src/components/ui/shadcn-ui/input-otp';
 import { EQueryKey } from 'src/constants/enum';
 import { TWO_FACTOR_CODE_LENGTH } from 'src/constants/variables';
-import { executeServerAction } from 'src/utils/common.util';
+import { userService } from 'src/services';
 import { showErrorToast, showSuccessToast } from 'src/utils/toast.util';
 
 interface IEnableTwoFADialogProps {
@@ -40,7 +39,7 @@ const EnableTwoFADialog: FC<IEnableTwoFADialogProps> = ({ open, setOpen }) => {
   const { isPending: isGenerating2FA, mutate: triggerGenerate2FA } =
     useMutation({
       mutationFn: async () => {
-        const responseData = await executeServerAction(() => generate2FA());
+        const responseData = await userService.generate2FA();
         return responseData;
       },
       onSuccess: (data) => {
@@ -116,9 +115,7 @@ const EnableTwoFADialog: FC<IEnableTwoFADialogProps> = ({ open, setOpen }) => {
       mutate: verifyTwoFactorAuthCode
     } = useMutation({
       mutationFn: async () => {
-        const response = await executeServerAction(() =>
-          enable2FA({ body: { otpCode } })
-        );
+        const response = await userService.enable2FA({ otpCode });
         return response;
       },
       onSuccess: async (response) => {

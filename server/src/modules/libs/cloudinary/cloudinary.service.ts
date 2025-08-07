@@ -50,7 +50,7 @@ export class CloudinaryService {
     try {
       const fileResource: UploadApiResponse = await v2.api.resource(publicId);
       return fileResource;
-    } catch (error) {
+    } catch (_error) {
       return undefined;
     }
   };

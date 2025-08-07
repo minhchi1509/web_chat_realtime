@@ -57,6 +57,18 @@ Table message_media {
   messageId String [not null]
 }
 
+Table message_emotion {
+  id String [pk]
+  type MessageEmotionType [not null]
+  createdAt DateTime [default: `now()`, not null]
+  messageId String [not null]
+  participantId String [not null]
+
+  indexes {
+    (messageId, participantId) [unique]
+  }
+}
+
 Enum ConversationRole {
   ADMIN
   MEMBER
@@ -67,6 +79,15 @@ Enum MessageMediaType {
   VIDEO
   AUDIO
   FILE
+}
+
+Enum MessageEmotionType {
+  LIKE
+  LOVE
+  WOW
+  HAHA
+  SAD
+  ANGRY
 }
 
 Ref: message.conversationId > conversation.id [delete: No Action]
@@ -80,3 +101,7 @@ Ref: conversation_participant.conversationId > conversation.id
 Ref: conversation_participant.lastSeenMessageId > message.id
 
 Ref: message_media.messageId > message.id [delete: Cascade]
+
+Ref: message_emotion.messageId > message.id [delete: Cascade]
+
+Ref: message_emotion.participantId > conversation_participant.id [delete: Cascade]

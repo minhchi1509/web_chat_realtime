@@ -6,13 +6,4 @@ export class LoginResponseDTO {
   @Expose()
   @Type(() => UserResponseDTO)
   user: UserResponseDTO;
-
-  @Expose()
-  accessToken: string;
-
-  @Expose()
-  refreshToken: string;
-
-  @Expose()
-  expiresIn: number;
 }

@@ -1,4 +1,11 @@
-import { applyDecorators, HttpStatus, Type } from '@nestjs/common';
+import {
+  applyDecorators,
+  BadRequestException,
+  Headers,
+  HttpStatus,
+  Type,
+  ValidationPipe
+} from '@nestjs/common';
 import {
   ApiConsumes,
   ApiExtraModels,
@@ -8,6 +15,7 @@ import {
 } from '@nestjs/swagger';
 import { FormDataRequest } from 'nestjs-form-data';
 
+import { CustomHeaders } from 'src/common/decorators/request-object.decorator';
 import { BaseExceptionResponse } from 'src/common/dto/BaseExceptionResponse.dto';
 import { PaginationResponseDTO } from 'src/common/dto/PaginationResponse.dto';
 
@@ -49,3 +57,21 @@ export const ApiOkResponsePaginated = <DataDTO extends Type<unknown>>(
       }
     })
   );
+
+export const RequestHeaders = () => {
+  return applyDecorators(
+    Headers() as PropertyDecorator,
+    CustomHeaders(
+      new ValidationPipe({
+        validateCustomDecorators: true, // Remember to add this option
+        transform: true, // Remember to add this option
+        stopAtFirstError: true,
+        exceptionFactory: (errors) =>
+          new BadRequestException({
+            message: 'Invalid request headers',
+            errors
+          })
+      })
+    ) as PropertyDecorator
+  ) as ParameterDecorator;
+};

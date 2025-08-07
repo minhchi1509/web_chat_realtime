@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next-nprogress-bar';
 import { useForm } from 'react-hook-form';
 
-import { signup } from 'src/actions/auth.actions';
 import { Button } from 'src/components/ui/shadcn-ui/button';
 import {
   Card,
@@ -17,9 +16,9 @@ import {
 } from 'src/components/ui/shadcn-ui/card';
 import { Form, FormField } from 'src/components/ui/shadcn-ui/form';
 import FormItemInput from 'src/components/ui/shared/form/FormItemInput';
+import { authService } from 'src/services';
 import { TErrorResponse } from 'src/types/error-response.type';
 import { TSignupForm } from 'src/types/form.type';
-import { executeServerAction } from 'src/utils/common.util';
 import { showErrorToast, showSuccessToast } from 'src/utils/toast.util';
 import { SignupFormValidationSchema } from 'src/utils/validations/form-validation';
 
@@ -37,7 +36,7 @@ const SignupPage = () => {
 
   const signupMutation = useMutation({
     mutationFn: async (data: TSignupForm) => {
-      const response = await executeServerAction(() => signup({ body: data }));
+      const response = await authService.signup(data);
       return response;
     },
     onSuccess: () => {

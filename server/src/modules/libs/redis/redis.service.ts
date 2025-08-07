@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 
-import { ETokenExpiration } from 'src/common/constants/common.enum';
+import {
+  EDevicePlatform,
+  EOAuthProvider,
+  ETokenExpiration
+} from 'src/common/constants/common.enum';
 import { RedisProvider } from 'src/modules/libs/redis/redis.provider';
 
 @Injectable()
@@ -97,5 +101,83 @@ export class RedisService {
         await this.redis.del(...keys);
       }
     } while (cursor !== '0');
+  };
+
+  setDeviceToken = async (
+    userId: string,
+    token: string,
+    platform: EDevicePlatform
+  ) => {
+    await this.redis.sadd(`device_token:${userId}:${platform}`, token);
+  };
+
+  getDeviceToken = async (
+    userId: string,
+    platform: EDevicePlatform | 'all'
+  ) => {
+    const platforms =
+      platform === 'all' ? ['ios', 'android', 'web'] : [platform];
+    const tokens = await Promise.all(
+      platforms.map((platform) =>
+        this.redis.smembers(`device_token:${userId}:${platform}`)
+      )
+    );
+    return tokens.flat();
+  };
+
+  deleteDeviceToken = async (
+    userId: string,
+    token: string,
+    platform: EDevicePlatform
+  ) => {
+    await this.redis.srem(`device_token:${userId}:${platform}`, token);
+  };
+
+  setInitOAuthPasswordToken = async (
+    oAuthProvider: EOAuthProvider,
+    email: string,
+    token: string
+  ) => {
+    await this.redis.set(
+      `init_oauth_password_token:${oAuthProvider}:${email}`,
+      token,
+      'EX',
+      ETokenExpiration.INIT_OAUTH_PASSWORD_TOKEN
+    );
+  };
+
+  getInitOAuthPasswordToken = async (
+    oAuthProvider: EOAuthProvider,
+    email: string
+  ) => {
+    const token = await this.redis.get(
+      `init_oauth_password_token:${oAuthProvider}:${email}`
+    );
+    return token;
+  };
+
+  deleteInitOAuthPasswordToken = async (
+    oAuthProvider: EOAuthProvider,
+    email: string
+  ) => {
+    await this.redis.del(`init_oauth_password_token:${oAuthProvider}:${email}`);
+  };
+
+  setTwoFAToken = async (userId: string, token: string) => {
+    await this.redis.set(
+      `two_fa_token:${userId}`,
+      token,
+      'EX',
+      ETokenExpiration.TWO_FACTOR_AUTH_TOKEN
+    );
+  };
+
+  getTwoFAToken = async (userId: string) => {
+    const token = await this.redis.get(`two_fa_token:${userId}`);
+    return token;
+  };
+
+  deleteTwoFAToken = async (userId: string) => {
+    await this.redis.del(`two_fa_token:${userId}`);
   };
 }

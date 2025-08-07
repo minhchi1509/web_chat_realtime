@@ -5,7 +5,6 @@ import { Dispatch, FC, SetStateAction } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-import { disable2FA } from 'src/actions/user.actions';
 import { Button } from 'src/components/ui/shadcn-ui/button';
 import {
   Dialog,
@@ -17,7 +16,7 @@ import {
 import { Form, FormField } from 'src/components/ui/shadcn-ui/form';
 import FormItemInput from 'src/components/ui/shared/form/FormItemInput';
 import { EQueryKey } from 'src/constants/enum';
-import { executeServerAction } from 'src/utils/common.util';
+import { userService } from 'src/services';
 import { showErrorToast, showSuccessToast } from 'src/utils/toast.util';
 
 interface IDisableTwoFADialogProps {
@@ -45,9 +44,7 @@ const DisableTwoFADialog: FC<IDisableTwoFADialogProps> = ({
 
   const { isPending: isDisablingTwoFA, mutate: disableTwoFA } = useMutation({
     mutationFn: async ({ password }: { password: string }) => {
-      const response = await executeServerAction(() =>
-        disable2FA({ body: { password } })
-      );
+      const response = await userService.disable2FA({ password });
       return response;
     },
     onSuccess: async (response) => {

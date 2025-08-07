@@ -1,6 +1,7 @@
 'use client';
+import { useMutation } from '@tanstack/react-query';
 import { LogOut } from 'lucide-react';
-import { signOut } from 'next-auth/react';
+import { useRouter } from 'next-nprogress-bar';
 import { FC, useState } from 'react';
 
 import { Button } from 'src/components/ui/shadcn-ui/button';
@@ -11,6 +12,9 @@ import {
   TooltipTrigger
 } from 'src/components/ui/shadcn-ui/tooltip';
 import ConfirmDialog from 'src/components/ui/shared/dialog/ConfirmDialog';
+import { notificationService, userService } from 'src/services';
+import { useFcmTokenStore } from 'src/store/useFcmToken';
+import { useSessionUserStore } from 'src/store/useSessionUserStore';
 import { cn } from 'src/utils/common.util';
 
 interface ILogoutButtonProps {
@@ -18,14 +22,26 @@ interface ILogoutButtonProps {
 }
 
 const LogoutButton: FC<ILogoutButtonProps> = ({ isSidebarOpen }) => {
+  const { fcmToken } = useFcmTokenStore();
   const [openLogoutModal, setOpenLogoutModal] = useState<boolean>(false);
-  const [isSigningOut, setIsSigningOut] = useState<boolean>(false);
+  const { push } = useRouter();
+  const { clearUser } = useSessionUserStore();
 
-  const handleLogout = async () => {
-    setIsSigningOut(true);
-    await signOut({ redirect: true, callbackUrl: '/login' });
-    setIsSigningOut(false);
-  };
+  const { mutate: signOut, isPending: isSigningOut } = useMutation({
+    mutationFn: async () => {
+      if (fcmToken) {
+        await notificationService.unsubscribeNotification({
+          deviceToken: fcmToken,
+          platform: 'web'
+        });
+      }
+      await userService.logOut();
+    },
+    onSuccess: () => {
+      clearUser();
+      push('/login');
+    }
+  });
 
   return (
     <>
@@ -60,7 +76,7 @@ const LogoutButton: FC<ILogoutButtonProps> = ({ isSidebarOpen }) => {
         onOpenChange={setOpenLogoutModal}
         title="Confirm Logout"
         description="Are you sure you want to log out? Any unsaved changes will be lost. Please confirm to proceed."
-        onConfirm={handleLogout}
+        onConfirm={signOut}
         isLoading={isSigningOut}
       />
     </>

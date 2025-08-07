@@ -5,19 +5,21 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { FileText, Play } from 'lucide-react';
 import Image from 'next/image';
-import React, { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { v4 as uuidv4 } from 'uuid';
 
 import { UploadIcon } from 'src/assets/icons';
 import ChatAction from 'src/components/ui/features/chat/ChatAction';
 import ChatAvatarStatus from 'src/components/ui/features/chat/ChatAvatarStatus';
+import MessageReactionPopover from 'src/components/ui/features/chat/MessageReactionPopover';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger
 } from 'src/components/ui/shadcn-ui/tooltip';
+import EmotionReact from 'src/components/ui/shared/EmotionReact';
 import FullScreenMediaSlider, {
   IMediaItem
 } from 'src/components/ui/shared/FullScreenMediaSlider';
@@ -29,8 +31,8 @@ import {
 } from 'src/constants/variables';
 import useGetConversationDetails from 'src/hooks/cache/useGetConversationDetails';
 import { useGetConversationMessages } from 'src/hooks/cache/useGetConversationMessages';
-import useSessionUser from 'src/hooks/useSessionUser';
-import { useSocketStore } from 'src/hooks/zustand/useSocketStore';
+import { useSessionUserStore } from 'src/store/useSessionUserStore';
+import { useSocketStore } from 'src/store/useSocketStore';
 import { TUploadFile } from 'src/types/common.type';
 import {
   cn,
@@ -52,9 +54,13 @@ const ConversationMessages: FC<IConversationMessagesProps> = ({
   const [viewMediaList, setViewMediaList] = useState<IMediaItem[]>([]);
   const [openMediaSlider, setOpenMediaSlider] = useState(false);
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const [activeReactionMessage, setActiveReactionMessage] = useState<
+    string | null
+  >(null);
+
   const chatSocket = useSocketStore((state) => state.getSocket('/chat'));
   const queryClient = useQueryClient();
-  const currentUser = useSessionUser();
+  const { user: currentUser } = useSessionUserStore();
   const {
     data: conversationDetails,
     isLoading: isGettingConversationDetails,
@@ -107,6 +113,30 @@ const ConversationMessages: FC<IConversationMessagesProps> = ({
     }
   };
 
+  const handleReactionPopoverOpenChange = (
+    open: boolean,
+    messageId: string
+  ) => {
+    if (!open) {
+      setActiveReactionMessage(null);
+    } else {
+      setActiveReactionMessage(messageId);
+    }
+  };
+
+  const handleDropEmotionSuccess = async () => {
+    setActiveReactionMessage(null);
+
+    // Invalidate query to refresh messages
+    await queryClient.invalidateQueries({
+      queryKey: ['conversation-messages', { conversationId }]
+    });
+  };
+
+  const handleMarkMessageSeen = () => {
+    chatSocket.emit('user_mark_seen_message', { conversationId });
+  };
+
   const { getRootProps, isDragActive } = useDropzone({
     onDrop: async (files: File[]) => {
       await handleChangeMessageFiles(files);
@@ -114,22 +144,7 @@ const ConversationMessages: FC<IConversationMessagesProps> = ({
   });
 
   useEffect(() => {
-    chatSocket.on('new_seen_message', async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['conversations'] }),
-        queryClient.invalidateQueries({
-          queryKey: ['conversation-messages', { conversationId }]
-        })
-      ]);
-    });
-
-    return () => {
-      chatSocket.off('new_seen_message');
-    };
-  }, [conversationId]);
-
-  useEffect(() => {
-    chatSocket.emit('user_mark_seen_message', { conversationId });
+    handleMarkMessageSeen();
   }, [conversationId]);
 
   return (
@@ -218,13 +233,13 @@ const ConversationMessages: FC<IConversationMessagesProps> = ({
                     )}
                     <div
                       className={cn(
-                        'flex relative',
+                        'flex relative group',
                         isMessageSentByMe ? 'justify-end' : 'justify-start'
                       )}
                     >
                       <div className="flex max-w-[80%]">
                         {!isMessageSentByMe && (
-                          <div className="flex w-10 items-end">
+                          <div className="flex w-10 shrink-0 items-end">
                             {(!isPreviousMessageSentBySameUser ||
                               message.isShowSeperateTime ||
                               isPreviousMessageShowSeperateTime) && (
@@ -237,81 +252,142 @@ const ConversationMessages: FC<IConversationMessagesProps> = ({
                           </div>
                         )}
                         <div className="flex flex-col">
-                          {message.content && (
-                            <div
-                              className={cn(
-                                'w-fit rounded-3xl px-3 py-2',
-                                isMessageSentByMe
-                                  ? 'bg-blue-500 dark:bg-blue-600 text-white ml-auto'
-                                  : 'bg-muted'
-                              )}
-                            >
-                              <p className="text-[15px]">{message.content}</p>
-                            </div>
-                          )}
-                          {photoAndVideoMediaList.length > 0 && (
-                            <div
-                              className={cn(
-                                'mt-1 grid grid-cols-1 gap-1',
-                                photoAndVideoMediaList.length >= 3 &&
-                                  'grid-cols-3',
-                                photoAndVideoMediaList.length === 2 &&
-                                  'grid-cols-2'
-                              )}
-                            >
-                              {photoAndVideoMediaList.map((media, i) => (
+                          <div className="flex gap-2">
+                            <div className="flex flex-col">
+                              {message.content && (
                                 <div
-                                  className="relative shrink-0 hover:cursor-pointer"
-                                  key={media.id}
-                                  onClick={() => {
-                                    setViewMediaList(photoAndVideoMediaList);
-                                    setActiveMediaIndex(i);
-                                    setOpenMediaSlider(true);
-                                  }}
-                                >
-                                  <Image
-                                    width={128}
-                                    height={128}
-                                    src={media.url.replaceAll('.mp4', '.jpg')}
-                                    alt="media"
-                                    className="aspect-square rounded-lg object-cover"
-                                  />
-                                  {media.type === 'VIDEO' && (
-                                    <div className="absolute inset-0 m-auto size-fit rounded-full bg-black bg-opacity-50 p-3">
-                                      <Play
-                                        className="text-white"
-                                        size={20}
-                                        fill="white"
-                                      />
-                                    </div>
+                                  className={cn(
+                                    'w-fit rounded-3xl px-3 py-2',
+                                    isMessageSentByMe
+                                      ? 'bg-blue-500 dark:bg-blue-600 text-white ml-auto'
+                                      : 'bg-muted'
                                   )}
+                                >
+                                  <p className="text-[15px]">
+                                    {message.content}
+                                  </p>
                                 </div>
-                              ))}
+                              )}
+
+                              {photoAndVideoMediaList.length > 0 && (
+                                <div
+                                  className={cn(
+                                    'mt-1 grid grid-cols-1 gap-1',
+                                    photoAndVideoMediaList.length >= 3 &&
+                                      'grid-cols-3',
+                                    photoAndVideoMediaList.length === 2 &&
+                                      'grid-cols-2'
+                                  )}
+                                >
+                                  {photoAndVideoMediaList.map((media, i) => (
+                                    <div
+                                      className="relative shrink-0 hover:cursor-pointer"
+                                      key={media.id}
+                                      onClick={() => {
+                                        setViewMediaList(
+                                          photoAndVideoMediaList
+                                        );
+                                        setActiveMediaIndex(i);
+                                        setOpenMediaSlider(true);
+                                      }}
+                                    >
+                                      <Image
+                                        width={128}
+                                        height={128}
+                                        src={media.url.replaceAll(
+                                          '.mp4',
+                                          '.jpg'
+                                        )}
+                                        alt="media"
+                                        className="aspect-square rounded-lg object-cover"
+                                      />
+                                      {media.type === 'VIDEO' && (
+                                        <div className="absolute inset-0 m-auto size-fit rounded-full bg-black bg-opacity-50 p-3">
+                                          <Play
+                                            className="text-white"
+                                            size={20}
+                                            fill="white"
+                                          />
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {fileMediaList.length > 0 && (
+                                <div
+                                  className={cn(
+                                    'mt-1 flex flex-col gap-1',
+                                    isMessageSentByMe
+                                      ? 'items-end'
+                                      : 'items-start'
+                                  )}
+                                >
+                                  {fileMediaList.map((media) => (
+                                    <button
+                                      key={media.id}
+                                      className="flex items-center justify-center gap-2 rounded-lg bg-muted p-3"
+                                      onClick={() =>
+                                        downloadFileFromUrl(
+                                          media.url,
+                                          media.fileName || ''
+                                        )
+                                      }
+                                    >
+                                      <FileText size={20} />
+                                      <span className="text-xs">
+                                        {media.fileName}
+                                      </span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                          )}
-                          {fileMediaList.length > 0 && (
+
+                            {!isMessageSentByMe && (
+                              <MessageReactionPopover
+                                open={activeReactionMessage === message.id}
+                                onOpenChange={(isOpen) =>
+                                  handleReactionPopoverOpenChange(
+                                    isOpen,
+                                    message.id
+                                  )
+                                }
+                                onDropEmotionSuccess={handleDropEmotionSuccess}
+                                messageId={message.id}
+                                conversationId={conversationId}
+                                className={`${activeReactionMessage !== message.id ? 'opacity-0 group-hover:opacity-100' : ''}`}
+                              />
+                            )}
+                          </div>
+                          {/* Display message reactions */}
+                          {message.emotions && message.emotions.length > 0 && (
                             <div
                               className={cn(
-                                'mt-1 flex flex-col gap-1',
-                                isMessageSentByMe ? 'items-end' : 'items-start'
+                                'flex items-center gap-1 mt-1',
+                                isMessageSentByMe
+                                  ? 'justify-end'
+                                  : 'justify-start'
                               )}
                             >
-                              {fileMediaList.map((media) => (
-                                <button
-                                  key={media.id}
-                                  className="flex items-center justify-center gap-2 rounded-lg bg-muted p-3"
-                                  onClick={() =>
-                                    downloadFileFromUrl(
-                                      media.url,
-                                      media.fileName || ''
-                                    )
-                                  }
-                                >
-                                  <FileText size={20} />
-                                  <span className="text-xs">
-                                    {media.fileName}
-                                  </span>
-                                </button>
+                              {message.emotions.map((emotion) => (
+                                <TooltipProvider key={emotion.id}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div className="flex items-center">
+                                        <EmotionReact
+                                          type={emotion.type}
+                                          size={25}
+                                        />
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>
+                                        {emotion.participant.profile.fullName}
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                               ))}
                             </div>
                           )}

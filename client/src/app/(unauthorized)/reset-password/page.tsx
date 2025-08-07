@@ -2,12 +2,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
-import { signIn } from 'next-auth/react';
 import { useRouter } from 'next-nprogress-bar';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 
-import { loginWithGoogle, resetPassword } from 'src/actions/auth.actions';
 import { Button } from 'src/components/ui/shadcn-ui/button';
 import {
   Card,
@@ -19,8 +17,8 @@ import {
 } from 'src/components/ui/shadcn-ui/card';
 import { Form, FormField } from 'src/components/ui/shadcn-ui/form';
 import FormItemInput from 'src/components/ui/shared/form/FormItemInput';
+import { authService } from 'src/services';
 import { TResetPasswordForm } from 'src/types/form.type';
-import { executeServerAction } from 'src/utils/common.util';
 import { showErrorToast, showSuccessToast } from 'src/utils/toast.util';
 import { ResetPasswordFormValidationSchema } from 'src/utils/validations/form-validation';
 
@@ -28,9 +26,12 @@ const ResetPasswordPage = () => {
   const { push } = useRouter();
   const searchParams = useSearchParams();
 
-  const config = searchParams.get('config');
-  const resetPasswordToken = searchParams.get('reset_password_token');
-  const passwordType = config === 'default' ? 'Initialize' : 'Reset';
+  const type = searchParams.get('type');
+  const token = searchParams.get('token');
+  const cardTitle =
+    type === 'init_oauth_password'
+      ? 'Initialize OAuth Password'
+      : 'Reset Password';
 
   const form = useForm<TResetPasswordForm>({
     resolver: zodResolver(ResetPasswordFormValidationSchema),
@@ -40,35 +41,31 @@ const ResetPasswordPage = () => {
     }
   });
 
-  const { isPending: isInitializingPassword, mutate: initializePassword } =
-    useMutation({
-      mutationFn: async (password: string) => {
-        const { user, ...token } = await executeServerAction(() =>
-          loginWithGoogle({
-            body: {
-              oauthToken: resetPasswordToken!,
-              password
-            }
-          })
-        );
-        await signIn('credentials', { ...user, ...token, redirect: false });
-      },
-      onSuccess: () => {
-        push('/');
-      },
-      onError: (error) => {
-        showErrorToast(error.message);
-      }
-    });
+  const {
+    isPending: isInitializingOAuthPassword,
+    mutate: initializeOAuthPassword
+  } = useMutation({
+    mutationFn: async (password: string) => {
+      const response = await authService.initOAuthPassword(
+        token || '',
+        password
+      );
+      return response;
+    },
+    onSuccess: () => {
+      push('/');
+    },
+    onError: (error) => {
+      showErrorToast(error.message);
+    }
+  });
 
   const { isPending: isResettingPassword, mutate: triggerResetPassword } =
     useMutation({
       mutationFn: async (password: string) => {
-        await executeServerAction(() =>
-          resetPassword({
-            body: { newPassword: password, token: resetPasswordToken || '' }
-          })
-        );
+        await authService.resetPassword(token || '', {
+          newPassword: password
+        });
       },
       onSuccess: () => {
         showSuccessToast(
@@ -82,19 +79,19 @@ const ResetPasswordPage = () => {
     });
 
   const onSubmitResetPasswordForm = async (formValues: TResetPasswordForm) => {
-    if (config === 'default') {
-      initializePassword(formValues.newPassword);
+    if (type === 'init_oauth_password') {
+      initializeOAuthPassword(formValues.newPassword);
     } else {
       triggerResetPassword(formValues.newPassword);
     }
   };
 
   useEffect(() => {
-    if ((!config && !resetPasswordToken) || !resetPasswordToken) {
+    if ((!type && !type) || !token) {
       push('/login');
       return;
     }
-  }, [config, resetPasswordToken, push]);
+  }, [type, token, push]);
 
   return (
     <Form {...form}>
@@ -102,7 +99,7 @@ const ResetPasswordPage = () => {
         <div className="flex min-h-screen items-center justify-center">
           <Card className="w-full max-w-md bg-zinc-50 dark:bg-zinc-900">
             <CardHeader>
-              <CardTitle>{passwordType} Password</CardTitle>
+              <CardTitle>{cardTitle}</CardTitle>
               <CardDescription>Enter your new password below</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -135,9 +132,9 @@ const ResetPasswordPage = () => {
               <Button
                 type="submit"
                 className="w-full"
-                isLoading={isResettingPassword || isInitializingPassword}
+                isLoading={isResettingPassword || isInitializingOAuthPassword}
               >
-                {passwordType} Password
+                {type === 'init_oauth_password' ? 'Initialize' : 'Reset'}
               </Button>
             </CardFooter>
           </Card>

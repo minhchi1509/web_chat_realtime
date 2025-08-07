@@ -7,12 +7,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-generator dbml {
-  provider              = "prisma-dbml-generator"
-  projectName           = "Web Chat Realtime"
-  projectDatabaseType   = "MySQL"
-  includeRelationFields = false
-}
+// generator dbml {
+//   provider              = "prisma-dbml-generator"
+//   projectName           = "Web Chat Realtime"
+//   projectDatabaseType   = "MySQL"
+//   includeRelationFields = false
+// }
 
 enum ConversationRole {
   ADMIN
@@ -26,6 +26,15 @@ enum MessageMediaType {
   FILE
 }
 
+enum MessageEmotionType {
+  LIKE
+  LOVE
+  WOW
+  HAHA
+  SAD
+  ANGRY
+}
+
 model User {
   id                    String  @id @default(uuid())
   fullName              String  @map("full_name")
@@ -36,6 +45,7 @@ model User {
 
   conversationParticipants ConversationParticipant[]
 
+  @@index([fullName]) // For user searches by name
   @@map("user")
 }
 
@@ -50,6 +60,8 @@ model Conversation {
   conversationParticipants ConversationParticipant[]
   messages                 Message[]
 
+  @@index([isGroupChat]) // For filtering group vs private conversations
+  @@index([updatedAt]) // For sorting by recent activity
   @@map("conversation")
 }
 
@@ -60,8 +72,9 @@ model Message {
   isLastMessageOfConversation Boolean  @default(true) @map("is_last_message_of_conversation")
   isShowSeperateTime          Boolean  @default(false) @map("is_show_seperate_time")
 
-  lastSeenBy    ConversationParticipant[] @relation("last_seen_message_by")
-  messageMedias MessageMedia[]
+  lastSeenBy      ConversationParticipant[] @relation("last_seen_message_by")
+  messageMedias   MessageMedia[]
+  messageEmotions MessageEmotion[]
 
   conversationId String       @map("conversation_id")
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -69,6 +82,11 @@ model Message {
   senderId String                  @map("sender_id")
   sender   ConversationParticipant @relation(name: "participant_sent_message", fields: [senderId], references: [id])
 
+  @@index([conversationId])
+  @@index([isLastMessageOfConversation])
+  @@index([createdAt])
+  @@index([conversationId, createdAt])
+  @@index([conversationId, isLastMessageOfConversation])
   @@map("message")
 }
 
@@ -78,7 +96,8 @@ model ConversationParticipant {
   joinedAt          DateTime         @default(now()) @map("joined_at")
   lastSeenMessageAt DateTime?        @map("last_seen_message_at")
 
-  sentMessages Message[] @relation("participant_sent_message")
+  sentMessages           Message[]        @relation("participant_sent_message")
+  droppedMessageEmotions MessageEmotion[]
 
   userId String @map("user_id")
   user   User   @relation(fields: [userId], references: [id])
@@ -90,6 +109,9 @@ model ConversationParticipant {
   lastSeenMessage   Message? @relation(name: "last_seen_message_by", fields: [lastSeenMessageId], references: [id])
 
   @@unique([userId, conversationId])
+  @@index([userId]) // For finding user's conversations
+  @@index([conversationId]) // For finding participants in a conversation
+  @@index([lastSeenMessageId]) // For message tracking
   @@map("conversation_participant")
 }
 
@@ -100,7 +122,27 @@ model MessageMedia {
   fileName String?          @map("file_name")
 
   messageId String  @map("message_id")
-  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
+  @@index([messageId]) // For finding media by message
+  @@index([type]) // For filtering by media type
   @@map("message_media")
+}
+
+model MessageEmotion {
+  id        String             @id @default(uuid())
+  type      MessageEmotionType
+  createdAt DateTime           @default(now()) @map("created_at")
+
+  messageId String  @map("message_id")
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  participantId String                  @map("participant_id")
+  participant   ConversationParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, participantId])
+  @@index([messageId]) // For finding emotions by message
+  @@index([participantId]) // For finding emotions by participant
+  @@index([type]) // For counting emotion
+  @@map("message_emotion")
 }

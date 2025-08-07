@@ -1,11 +1,10 @@
 import {
   BadRequestException,
-  forwardRef,
   Inject,
   Injectable,
   NotFoundException
 } from '@nestjs/common';
-import { MessageMediaType } from '@prisma/client';
+import { MessageEmotionType, MessageMediaType } from '@prisma/client';
 import dayjs from 'dayjs';
 
 import { TExtendedPrismaClient } from 'src/common/configs/prisma.config';
@@ -16,6 +15,7 @@ import { PaginationQueryDTO } from 'src/common/dto/PaginationQuery.dto';
 import { PaginationResponseDTO } from 'src/common/dto/PaginationResponse.dto';
 import { getMediaType } from 'src/common/utils/common.util';
 import { CreatePrivateChatResponseDTO } from 'src/modules/apis/chat/dto/create-private-chat/CreatePrivateChatResponse.dto';
+import { DropMessageEmotionResponseDTO } from 'src/modules/apis/chat/dto/drop-message-emotion/DropMessageEmotionResponse.dto';
 import { GetChatMemberResponseDTO } from 'src/modules/apis/chat/dto/get-chat-members/GetChatMemberResponse.dto';
 import { GetChatMembersQueryDTO } from 'src/modules/apis/chat/dto/get-chat-members/GetChatMembersQuery.dto';
 import { GetConversationDetailsResponseDTO } from 'src/modules/apis/chat/dto/get-conversation-details/GetConversationDetailsResponse.dto';
@@ -25,7 +25,7 @@ import { SendConversationMessageDTO } from 'src/modules/apis/chat/dto/send-conve
 import { SendConversationMessageResponseDTO } from 'src/modules/apis/chat/dto/send-conversation-message/SendConversationMessageResponse.dto';
 import { CloudinaryService } from 'src/modules/libs/cloudinary/cloudinary.service';
 import { RedisService } from 'src/modules/libs/redis/redis.service';
-import { ChatGateway } from 'src/modules/libs/web-socket/gateways/chat.gateway';
+import { ChatSocketService } from 'src/modules/web-socket/chat/chat-socket.service';
 
 @Injectable()
 export class ChatService {
@@ -34,8 +34,7 @@ export class ChatService {
     private prismaService: TExtendedPrismaClient,
     private redisService: RedisService,
     private cloudinaryService: CloudinaryService,
-    @Inject(forwardRef(() => ChatGateway))
-    private chatSocket: ChatGateway
+    private chatSocketService: ChatSocketService
   ) {}
 
   async getChatMembers(
@@ -111,7 +110,7 @@ export class ChatService {
       };
     }
 
-    const receiver = await this.prismaService.user
+    const _receiver = await this.prismaService.user
       .findUniqueOrThrow({
         where: { id: receiverId }
       })
@@ -299,12 +298,7 @@ export class ChatService {
     const conversation = await this.prismaService.conversation
       .findUniqueOrThrow({
         where: {
-          id: conversationId,
-          conversationParticipants: {
-            some: {
-              userId
-            }
-          }
+          id: conversationId
         },
         select: {
           conversationParticipants: {
@@ -431,9 +425,9 @@ export class ChatService {
       }
     });
 
-    await this.chatSocket.sendNotificationToConversationMembers(
+    await this.chatSocketService.sendNotificationToConversationMembers(
       conversationId,
-      'new_message',
+      SOCKET_EVENTS_NAME_TO_CLIENT.CHAT.NEW_CONVERSATION_MESSAGE,
       { conversationId }
     );
 
@@ -455,79 +449,18 @@ export class ChatService {
           type: messageMedia.type,
           fileName: messageMedia.fileName
         })),
+        emotions: [],
         createdAt: createdMessage.createdAt,
         isLastMessageOfConversation: createdMessage.isLastMessageOfConversation
       }
     };
   };
 
-  async markSeenLatestMessageOfConversation(
-    conversationId: string,
-    userId: string
-  ) {
-    const conversation = await this.prismaService.conversation
-      .findFirstOrThrow({
-        where: {
-          id: conversationId,
-          conversationParticipants: {
-            some: {
-              userId
-            }
-          }
-        },
-        select: {
-          messages: {
-            where: {
-              isLastMessageOfConversation: true
-            },
-            select: {
-              id: true
-            }
-          }
-        }
-      })
-      .catch(() => {
-        throw new BadRequestException('Conversation not found');
-      });
-
-    await this.prismaService.conversationParticipant.updateMany({
-      where: {
-        conversationId,
-        userId
-      },
-      data: {
-        lastSeenMessageId: conversation.messages[0]?.id,
-        lastSeenMessageAt: new Date()
-      }
-    });
-
-    await this.chatSocket.sendNotificationToConversationMembers(
-      conversationId,
-      SOCKET_EVENTS_NAME_TO_CLIENT.CHAT.NEW_USER_SEEN_MESSAGE,
-      { userId, conversationId }
-    );
-  }
-
   async getConversationMessages(
     conversationId: string,
     query: PaginationQueryDTO,
     userId: string
   ): Promise<PaginationResponseDTO<GetConversationMessageResponseDTO>> {
-    const conversation = await this.prismaService.conversation
-      .findUniqueOrThrow({
-        where: {
-          id: conversationId,
-          conversationParticipants: {
-            some: {
-              userId
-            }
-          }
-        }
-      })
-      .catch(() => {
-        throw new NotFoundException('Conversation not found');
-      });
-
     const [messages, pagination] = await this.prismaService.message
       .paginate({
         where: {
@@ -544,7 +477,16 @@ export class ChatService {
               user: true
             }
           },
-          messageMedias: true
+          messageMedias: true,
+          messageEmotions: {
+            include: {
+              participant: {
+                include: {
+                  user: true
+                }
+              }
+            }
+          }
         },
         orderBy: {
           createdAt: ESortType.DESC
@@ -566,6 +508,16 @@ export class ChatService {
         },
         content: m.content,
         mediaList: m.messageMedias,
+        emotions: m.messageEmotions.map((emotion) => ({
+          id: emotion.id,
+          type: emotion.type,
+          participant: {
+            id: emotion.participant.id,
+            profile: emotion.participant.user,
+            role: emotion.participant.role
+          },
+          createdAt: emotion.createdAt
+        })),
         createdAt: m.createdAt,
         isLastMessageOfConversation: m.isLastMessageOfConversation,
         isShowSeperateTime: m.isShowSeperateTime,
@@ -594,14 +546,9 @@ export class ChatService {
     userId: string
   ): Promise<GetConversationDetailsResponseDTO> {
     const conversation = await this.prismaService.conversation
-      .findFirstOrThrow({
+      .findUniqueOrThrow({
         where: {
-          id: conversationId,
-          conversationParticipants: {
-            some: {
-              userId
-            }
-          }
+          id: conversationId
         },
         include: {
           conversationParticipants: {
@@ -639,5 +586,155 @@ export class ChatService {
       thumbnail: conversation.thumbnail || partner.user.avatar,
       isOnline: conversation.isGroupChat ? false : isPartnerOnline
     };
+  }
+
+  async dropMessageEmotion(
+    conversationId: string,
+    messageId: string,
+    userId: string,
+    emotionType: MessageEmotionType
+  ): Promise<DropMessageEmotionResponseDTO> {
+    // Find the message and check if it exists
+    const message = await this.prismaService.message
+      .findUniqueOrThrow({
+        where: {
+          id: messageId,
+          conversationId
+        },
+        include: {
+          conversation: {
+            include: {
+              conversationParticipants: {
+                where: {
+                  userId
+                }
+              }
+            }
+          }
+        }
+      })
+      .catch(() => {
+        throw new NotFoundException('Message not found');
+      });
+
+    // Safely get the participant ID
+    const participant = message.conversation.conversationParticipants[0];
+    if (!participant) {
+      throw new Error('Participant not found');
+    }
+    const participantId = participant.id;
+
+    // Check if an emotion already exists for this participant and message
+    const existingEmotion = await this.prismaService.messageEmotion.findUnique({
+      where: {
+        messageId_participantId: {
+          messageId,
+          participantId
+        }
+      },
+      include: {
+        participant: {
+          include: {
+            user: true
+          }
+        }
+      }
+    });
+
+    let result: DropMessageEmotionResponseDTO;
+
+    if (existingEmotion) {
+      // Update existing emotion if type is different
+      if (existingEmotion.type !== emotionType) {
+        const updatedEmotion = await this.prismaService.messageEmotion.update({
+          where: {
+            id: existingEmotion.id
+          },
+          data: {
+            type: emotionType
+          },
+          include: {
+            participant: {
+              include: {
+                user: true
+              }
+            }
+          }
+        });
+
+        result = {
+          message: 'Message emotion updated successfully',
+          droppedEmotion: {
+            id: updatedEmotion.id,
+            type: updatedEmotion.type,
+            participant: {
+              id: updatedEmotion.participant.id,
+              profile: updatedEmotion.participant.user,
+              role: updatedEmotion.participant.role
+            },
+            createdAt: updatedEmotion.createdAt
+          }
+        };
+      } else {
+        // Remove emotion if the same type is selected
+        await this.prismaService.messageEmotion.delete({
+          where: {
+            id: existingEmotion.id
+          }
+        });
+
+        result = {
+          message: 'Message emotion removed successfully',
+          droppedEmotion: {
+            id: existingEmotion.id,
+            type: existingEmotion.type,
+            participant: {
+              id: existingEmotion.participant.id,
+              profile: existingEmotion.participant.user,
+              role: existingEmotion.participant.role
+            },
+            createdAt: existingEmotion.createdAt
+          }
+        };
+      }
+    } else {
+      // Create a new emotion
+      const newEmotion = await this.prismaService.messageEmotion.create({
+        data: {
+          type: emotionType,
+          messageId,
+          participantId
+        },
+        include: {
+          participant: {
+            include: {
+              user: true
+            }
+          }
+        }
+      });
+
+      result = {
+        message: 'Dropped message emotion successfully',
+        droppedEmotion: {
+          id: newEmotion.id,
+          type: newEmotion.type,
+          participant: {
+            id: newEmotion.participant.id,
+            profile: newEmotion.participant.user,
+            role: newEmotion.participant.role
+          },
+          createdAt: newEmotion.createdAt
+        }
+      };
+    }
+
+    await this.chatSocketService.sendNotificationToConversationMembers(
+      message.conversationId,
+      SOCKET_EVENTS_NAME_TO_CLIENT.CHAT.NEW_MESSAGE_EMOTION,
+      { conversationId }
+    );
+
+    return result;
   }
 }

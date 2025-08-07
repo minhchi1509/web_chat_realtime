@@ -8,7 +8,7 @@ export class BaseExceptionResponse {
   message: string;
 
   @Expose()
-  details: any | null;
+  errors: any | null;
 
   @Expose()
   path: string;

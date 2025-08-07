@@ -4,7 +4,6 @@ import { useMutation } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
-import { changePassword } from 'src/actions/user.actions';
 import { AuthenticatorAppIcon } from 'src/assets/icons';
 import DisableTwoFADialog from 'src/components/ui/features/two-fa/DisableTwoFADialog';
 import EnableTwoFADialog from 'src/components/ui/features/two-fa/EnableTwoFADialog';
@@ -15,8 +14,8 @@ import { Switch } from 'src/components/ui/shadcn-ui/switch';
 import FormItemInput from 'src/components/ui/shared/form/FormItemInput';
 import LoadingStatus from 'src/components/ui/shared/status/LoadingStatus';
 import useGetUserProfile from 'src/hooks/cache/useGetUserProfile';
+import { userService } from 'src/services';
 import { TChangePasswordForm } from 'src/types/form.type';
-import { executeServerAction } from 'src/utils/common.util';
 import { showErrorToast, showSuccessToast } from 'src/utils/toast.util';
 import { ChangePasswordFormValidationSchema } from 'src/utils/validations/form-validation';
 
@@ -37,14 +36,10 @@ const SecuritySettingPage = () => {
   const { isPending: isChangingPassword, mutate: triggerChangePassword } =
     useMutation({
       mutationFn: async (data: TChangePasswordForm) => {
-        const responseData = await executeServerAction(() =>
-          changePassword({
-            body: {
-              oldPassword: data.currentPassword,
-              newPassword: data.newPassword
-            }
-          })
-        );
+        const responseData = await userService.changePassword({
+          oldPassword: data.currentPassword,
+          newPassword: data.newPassword
+        });
         return responseData;
       },
       onSuccess: (response) => {

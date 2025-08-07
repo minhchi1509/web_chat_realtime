@@ -1,6 +1,7 @@
-import { Body, Controller, Get, Post, Put } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Post, Put, Res } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { plainToInstance } from 'class-transformer';
+import { Response } from 'express';
 
 import {
   ApiExceptionResponse,
@@ -19,7 +20,6 @@ import { UpdateProfileResponseDTO } from 'src/modules/apis/user/dto/update-profi
 import { UserService } from 'src/modules/apis/user/user.service';
 
 @ApiTags('User')
-@ApiBearerAuth()
 @ApiExceptionResponse()
 @Controller('user')
 export class UserController {
@@ -78,8 +78,11 @@ export class UserController {
   }
 
   @Post('logout')
-  async logout(@UserId() userId: string): Promise<MessageResponseDTO> {
-    const response = await this.userService.logout(userId);
+  async logout(
+    @UserId() userId: string,
+    @Res({ passthrough: true }) res: Response
+  ): Promise<MessageResponseDTO> {
+    const response = await this.userService.logout(userId, res);
     return plainToInstance(MessageResponseDTO, response);
   }
 }

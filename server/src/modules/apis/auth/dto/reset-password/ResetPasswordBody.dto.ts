@@ -6,11 +6,6 @@ export class ResetPasswordBodyDto {
   @Trim()
   @IsNotEmpty()
   @IsString()
-  token: string;
-
-  @Trim()
-  @IsNotEmpty()
-  @IsString()
   @MinLength(8)
   @MaxLength(20)
   newPassword: string;

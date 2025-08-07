@@ -1,15 +1,20 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { authenticator } from 'otplib';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Response } from 'express';
 
 import { TExtendedPrismaClient } from 'src/common/configs/prisma.config';
-import { ELoginExceptionErrorType } from 'src/common/constants/common.enum';
+import {
+  ECookieName,
+  EOAuthProvider,
+  ETokenExpiration
+} from 'src/common/constants/common.enum';
 import { EProviderKey } from 'src/common/constants/provider-key.enum';
-import { TJWTPayload } from 'src/common/types/token.type';
-import { LoginResponseDTO } from 'src/modules/apis/auth/dto/login/LoginResponse.dto';
-import { OAuthLoginBodyDTO } from 'src/modules/apis/auth/dto/oauth-login/OAuthLoginBody.dto';
-import { LoginException } from 'src/modules/apis/auth/exceptions/LoginException';
+import { IEnvironmentVariables } from 'src/common/types/env.type';
+import { TJWTPayload, TOAuthProfile } from 'src/common/types/token.type';
+import { InitOAuthPasswordBodyDTO } from 'src/modules/apis/auth/dto/init-oauth-password/InitOAuthPasswordBody.dto';
+import { InitOAuthPasswordResponseDTO } from 'src/modules/apis/auth/dto/init-oauth-password/InitOAuthPasswordResponse.dto';
 import { BcryptService } from 'src/modules/libs/bcrypt/bcrypt.service';
-import { GoogleOAuthService } from 'src/modules/libs/google-oauth/google-oauth.service';
+import { CookiesService } from 'src/modules/libs/cookies/cookies.service';
 import { RedisService } from 'src/modules/libs/redis/redis.service';
 import { TokenService } from 'src/modules/libs/token/token.service';
 
@@ -20,87 +25,135 @@ export class OAuthService {
     private tokenService: TokenService,
     @Inject(EProviderKey.PRISMA_PROVIDER)
     private prismaService: TExtendedPrismaClient,
-    private googleOAuthService: GoogleOAuthService,
-    private bcryptService: BcryptService
+    private cookiesService: CookiesService,
+    private bcryptService: BcryptService,
+    private configService: ConfigService<IEnvironmentVariables>
   ) {}
 
-  googleLogin = async (body: OAuthLoginBodyDTO): Promise<LoginResponseDTO> => {
-    const { oauthToken, otpCode, password } = body;
-    const {
-      email,
-      picture: avatar,
-      name: fullName
-    } = await this.googleOAuthService.verifyIdToken(oauthToken);
-
-    if (!email || !avatar || !fullName) {
-      throw new LoginException({
-        message: 'Not enough information from Google',
-        errorType: ELoginExceptionErrorType.INVALID_CREDENTIALS
-      });
-    }
+  googleLoginRedirect = async (
+    oAuthProfile: TOAuthProfile,
+    res: Response
+  ): Promise<void> => {
+    const { email, fullName, avatarUrl } = oAuthProfile;
+    const clientBaseUrl = this.configService.get<string>('CLIENT_URL') || '';
 
     const currentUser = await this.prismaService.user.findFirst({
       where: { email }
     });
 
-    let user = currentUser;
+    const user = currentUser;
 
     if (!user) {
-      if (!password) {
-        throw new LoginException({
-          message: 'Password is required',
-          errorType: ELoginExceptionErrorType.REQUIRED_INITIALIZE_PASSWORD
-        });
-      }
-      const hashedPassword = await this.bcryptService.hash(password);
-      user = await this.prismaService.user.create({
-        data: { email, fullName, avatar, password: hashedPassword }
+      const oauthPayloadToken = await this.tokenService.signOAuthPayloadToken({
+        email,
+        fullName,
+        avatarUrl,
+        provider: EOAuthProvider.GOOGLE
       });
+      await this.redisService.setInitOAuthPasswordToken(
+        EOAuthProvider.GOOGLE,
+        email,
+        oauthPayloadToken
+      );
+
+      const clientRedirectUrl = new URL(`${clientBaseUrl}/reset-password`);
+      const queryParams = new URLSearchParams([
+        ['type', 'init_oauth_password'],
+        ['token', oauthPayloadToken]
+      ]);
+
+      clientRedirectUrl.search = queryParams.toString();
+      return res.redirect(clientRedirectUrl.toString());
     }
 
     if (user.isEnableTwoFactorAuth) {
-      if (!otpCode) {
-        throw new LoginException({
-          message: 'Two factor authenticator code is required',
-          errorType: ELoginExceptionErrorType.REQUIRED_2FA_OTP
-        });
-      }
-      const twofaSecretKey = await this.redisService.getTwoFASecretKey(
-        user?.id || ''
-      );
-      if (!twofaSecretKey) {
-        throw new Error(
-          `Can not find 2FA secret key of user with id: ${user?.id} in database`
-        );
-      }
-      const isValidOtp = authenticator.verify({
-        secret: twofaSecretKey,
-        token: otpCode || ''
+      const twoFAPayloadToken = await this.tokenService.signTwoFactorAuthToken({
+        userId: user.id,
+        email: user.email
       });
+      const clientRedirectUrl = new URL(`${clientBaseUrl}/two-factor-auth`);
 
-      if (!isValidOtp) {
-        throw new LoginException({
-          message: 'Two factor authenticator code is invalid',
-          errorType: ELoginExceptionErrorType.INVALID_2FA_OTP
-        });
-      }
+      this.cookiesService.setCookie(
+        res,
+        ECookieName.TWO_FACTOR_AUTH_TOKEN,
+        twoFAPayloadToken,
+        {
+          expires: new Date(
+            Date.now() + ETokenExpiration.TWO_FACTOR_AUTH_TOKEN * 1000
+          )
+        }
+      );
+
+      return res.redirect(clientRedirectUrl.toString());
     }
 
     const jwtPayload: TJWTPayload = {
-      sub: user!.id,
-      email: user!.email
+      sub: user.id,
+      email: user.email
     };
-    const { token: accessToken, expiresIn } =
-      await this.tokenService.signAccessToken(jwtPayload);
-    const refreshToken = await this.tokenService.signRefreshToken(jwtPayload);
 
-    await this.redisService.setUserRefreshToken(user!.id, refreshToken);
+    await this.tokenService.createAccessTokenAndRefreshToken(jwtPayload, res);
+
+    return res.redirect(
+      `${this.configService.get<string>('CLIENT_URL') || ''}/`
+    );
+  };
+
+  initPassword = async (
+    token: string,
+    body: InitOAuthPasswordBodyDTO,
+    res: Response
+  ): Promise<InitOAuthPasswordResponseDTO> => {
+    const decodedOAuthInitPasswordToken =
+      await this.tokenService.verifyInitOAuthPasswordToken(token);
+    if (!decodedOAuthInitPasswordToken) {
+      throw new BadRequestException('Invalid OAuth init password token');
+    }
+    const oAuthInitPasswordToken =
+      await this.redisService.getInitOAuthPasswordToken(
+        EOAuthProvider.GOOGLE,
+        decodedOAuthInitPasswordToken.email
+      );
+    if (!oAuthInitPasswordToken) {
+      throw new BadRequestException('Invalid OAuth init password token');
+    }
+
+    const user = await this.prismaService.user.findUnique({
+      where: { email: decodedOAuthInitPasswordToken.email }
+    });
+
+    if (user) {
+      throw new BadRequestException(
+        'This email is already associated with an account. Please use a different email.'
+      );
+    }
+
+    const { password } = body;
+    const { email, fullName, avatarUrl } = decodedOAuthInitPasswordToken;
+    const hashedPassword = await this.bcryptService.hash(password);
+    const createdUser = await this.prismaService.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        fullName,
+        avatar: avatarUrl
+      }
+    });
+
+    const jwtPayload: TJWTPayload = {
+      sub: createdUser.id,
+      email: createdUser.email
+    };
+
+    await this.tokenService.createAccessTokenAndRefreshToken(jwtPayload, res);
+    await this.redisService.deleteInitOAuthPasswordToken(
+      EOAuthProvider.GOOGLE,
+      decodedOAuthInitPasswordToken.email
+    );
 
     return {
-      user: user!,
-      accessToken,
-      refreshToken,
-      expiresIn
+      message: 'OAuth password initialized successfully.',
+      user: createdUser
     };
   };
 }

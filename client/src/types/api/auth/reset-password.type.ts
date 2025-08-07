@@ -1,12 +1,7 @@
 import { TUserResponse } from 'src/types/api/model.type';
 
-type TResetPasswordBody = {
-  token: string;
+export type TResetPasswordBody = {
   newPassword: string;
-};
-
-export type TResetPasswordRequest = {
-  body: TResetPasswordBody;
 };
 
 export type TResetPasswordResponse = {

@@ -6,7 +6,6 @@ import { useRouter } from 'next-nprogress-bar';
 import React, { useState } from 'react';
 import { useDebounceCallback } from 'usehooks-ts';
 
-import { createPrivateConversation } from 'src/actions/chat.actions';
 import ChatAvatarStatus from 'src/components/ui/features/chat/ChatAvatarStatus';
 import { Input } from 'src/components/ui/shadcn-ui/input';
 import {
@@ -17,8 +16,8 @@ import {
 import InfiniteScroller from 'src/components/ui/shared/infinite-scrollers';
 import LoadingSpinner from 'src/components/ui/shared/LoadingSpinner';
 import useSearchChatMembers from 'src/hooks/cache/useSearchChatMembers';
+import { chatService } from 'src/services';
 import { TErrorResponse } from 'src/types/error-response.type';
-import { executeServerAction } from 'src/utils/common.util';
 import { showErrorToast } from 'src/utils/toast.util';
 
 const SearchChatMembers = () => {
@@ -44,7 +43,7 @@ const SearchChatMembers = () => {
     mutate: triggerCreatePrivateConversation
   } = useMutation({
     mutationFn: (partnerId: string) =>
-      executeServerAction(() => createPrivateConversation(partnerId)),
+      chatService.createPrivateConversation(partnerId),
     onSuccess: (responseData) => {
       push(`/messages/${responseData.createdConversation.id}`);
     },

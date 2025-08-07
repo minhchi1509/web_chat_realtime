@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 
-import { sendResetPasswordEmail } from 'src/actions/auth.actions';
 import { Button } from 'src/components/ui/shadcn-ui/button';
 import {
   Card,
@@ -20,9 +19,9 @@ import { Form, FormField } from 'src/components/ui/shadcn-ui/form';
 import FormItemInput from 'src/components/ui/shared/form/FormItemInput';
 import { RESET_PASSWORD_LINK_EXPIRED_TIME } from 'src/constants/variables';
 import useTimeCountDown from 'src/hooks/useTimeCountDown';
+import { authService } from 'src/services';
 import { TErrorResponse } from 'src/types/error-response.type';
 import { TForgotPasswordForm } from 'src/types/form.type';
-import { executeServerAction } from 'src/utils/common.util';
 import { showErrorToast } from 'src/utils/toast.util';
 import { ForgotPasswordFormValidationSchema } from 'src/utils/validations/form-validation';
 
@@ -41,9 +40,7 @@ const ForgotPasswordPage = () => {
   const { isPending: isSendingResetPassword, mutate: sendResetPasswordMail } =
     useMutation({
       mutationFn: async (formData: TForgotPasswordForm) => {
-        await executeServerAction(() =>
-          sendResetPasswordEmail({ body: formData })
-        );
+        await authService.sendResetPasswordEmail(formData);
       },
       onSuccess: () => {
         setIsSubmitted(true);

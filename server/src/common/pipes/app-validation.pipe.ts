@@ -14,7 +14,7 @@ export class AppValidationPipe extends ValidationPipe {
       exceptionFactory: (errors) =>
         new BadRequestException({
           message: 'Invalid request body data',
-          details: errors
+          errors
         })
     });
   }

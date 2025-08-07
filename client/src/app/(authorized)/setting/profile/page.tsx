@@ -4,7 +4,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
-import { updateUserProfile } from 'src/actions/user.actions';
 import PlayholderContent from 'src/components/ui/layouts/content/PlayholderContent';
 import {
   Avatar,
@@ -19,8 +18,8 @@ import UploadFileButton from 'src/components/ui/shared/UploadFileButton';
 import { EQueryKey } from 'src/constants/enum';
 import { AVATAR_MAX_FILE_SIZE } from 'src/constants/variables';
 import useGetUserProfile from 'src/hooks/cache/useGetUserProfile';
+import { userService } from 'src/services';
 import { TEditProfileForm } from 'src/types/form.type';
-import { executeServerAction } from 'src/utils/common.util';
 import { showErrorToast, showSuccessToast } from 'src/utils/toast.util';
 import { EditProfileFormValidationSchema } from 'src/utils/validations/form-validation';
 
@@ -39,7 +38,7 @@ const ProfileSettingPage = () => {
       if (formValues.avatar) {
         formData.append('avatar', formValues.avatar);
       }
-      return await executeServerAction(() => updateUserProfile(formData));
+      return userService.updateUserProfile(formData);
     },
     onSuccess: async (response) => {
       await queryClient.invalidateQueries({

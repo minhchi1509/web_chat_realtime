@@ -3,6 +3,8 @@
 import { ChangeEventHandler, useRef, useState } from 'react';
 
 import PlayholderContent from 'src/components/ui/layouts/content/PlayholderContent';
+import { Button } from 'src/components/ui/shadcn-ui/button';
+import UploadFiles from 'src/components/ui/shared/UploadFiles';
 import { cn } from 'src/utils/common.util';
 
 const ProductsPage = () => {
@@ -24,6 +26,23 @@ const ProductsPage = () => {
         formData.append('file', chunk);
       }
     }
+  };
+
+  const handleGetSession = async () => {
+    // const res = await fetch('/api/send-email', {
+    //   method: 'POST',
+    //   headers: {
+    //     'Content-Type': 'application/json'
+    //   },
+    //   body: JSON.stringify({
+    //     accessToken: session?.user.oAuthProfile?.access_token,
+    //     to: 'minhchico300kc@gmail.com',
+    //     subject: 'Hello from Gmail API',
+    //     message: 'This is a test email sent from Gmail API using NextAuth.'
+    //   })
+    // });
+    // const data = await res.json();
+    // alert(data.message || 'Done');
   };
 
   return (
@@ -67,22 +86,19 @@ const ProductsPage = () => {
           <div className="h-80 flex-1 shrink-0 bg-teal-400 duration-300 group-hover:opacity-20 group-hover:hover:scale-110 group-hover:hover:opacity-100"></div>
           <div className="h-80 flex-1 shrink-0 bg-teal-400 duration-300 group-hover:opacity-20 group-hover:hover:scale-110 group-hover:hover:opacity-100"></div>
         </div> */}
-        <div className="relative flex h-[650px] w-full max-w-3xl flex-col overflow-auto bg-red-700">
-          <div className="sticky top-0 z-10 h-16 bg-teal-400"></div>
-          <div className="flex flex-1">
-            <div className="w-[120px] bg-yellow-400"></div>
-            <div className="flex-1 bg-purple-700">
-              {Array.from({ length: 10 }, (_, i) => (
-                <div key={i}>
-                  Lorem ipsum dolor sit amet consectetur adipisicing elit.
-                  Veniam ipsa maxime officia? Dolor enim in, beatae qui, eius
-                  tenetur veritatis architecto eaque culpa voluptates quod ab
-                  necessitatibus ipsam voluptas quibusdam!
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        <UploadFiles
+          draggable
+          onUploadSuccess={(files) => console.log('Files:', files)}
+          validationOptions={{
+            acceptedFileTypes: ['image/png', 'image/jpeg', 'image/gif'],
+            maxFiles: 3
+          }}
+        >
+          <Button size="lg">Upload File</Button>
+        </UploadFiles>
+        <Button size="lg" onClick={handleGetSession}>
+          Get session data
+        </Button>
       </PlayholderContent>
     </div>
   );

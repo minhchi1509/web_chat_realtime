@@ -29,3 +29,12 @@ export enum ESocketEvent {
   USER_OFFLINE = 'user_offline',
   WS_EXCEPTION = 'ws_exception'
 }
+
+export enum EMessageEmotionType {
+  LIKE = 'LIKE',
+  LOVE = 'LOVE',
+  HAHA = 'HAHA',
+  WOW = 'WOW',
+  SAD = 'SAD',
+  ANGRY = 'ANGRY'
+}

@@ -5,11 +5,16 @@ import {
   NotFoundException
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Response } from 'express';
 import { authenticator } from 'otplib';
 
 import { TExtendedPrismaClient } from 'src/common/configs/prisma.config';
 import { DEFAULT_USER_AVATAR_URL } from 'src/common/constants/common.constant';
-import { ELoginExceptionErrorType } from 'src/common/constants/common.enum';
+import {
+  ECookieName,
+  ELoginExceptionErrorType,
+  ETokenExpiration
+} from 'src/common/constants/common.enum';
 import { EProviderKey } from 'src/common/constants/provider-key.enum';
 import { MessageResponseDTO } from 'src/common/dto/MessageResponse.dto';
 import { IEnvironmentVariables } from 'src/common/types/env.type';
@@ -20,12 +25,16 @@ import {
 } from 'src/common/types/token.type';
 import { LoginBodyDTO } from 'src/modules/apis/auth/dto/login/LoginBody.dto';
 import { LoginResponseDTO } from 'src/modules/apis/auth/dto/login/LoginResponse.dto';
+import { RefreshTokenResponseDTO } from 'src/modules/apis/auth/dto/refresh-token/RefreshTokenResponse.dto';
 import { ResetPasswordBodyDto } from 'src/modules/apis/auth/dto/reset-password/ResetPasswordBody.dto';
+import { ResetPasswordHeadersDTO } from 'src/modules/apis/auth/dto/reset-password/ResetPasswordHeaders.dto';
 import { ResetPasswordResponseDto } from 'src/modules/apis/auth/dto/reset-password/ResetPasswordResponse.dto';
 import { SignupRequestDTO } from 'src/modules/apis/auth/dto/signup/SignupBody.dto';
 import { SignupResponseDTO } from 'src/modules/apis/auth/dto/signup/SignupResponse.dto';
+import { VerifyTwoFactorAuthBodyDTO } from 'src/modules/apis/auth/dto/verify-two-factor/VerifyTwoFactorBody.dto';
 import { LoginException } from 'src/modules/apis/auth/exceptions/LoginException';
 import { BcryptService } from 'src/modules/libs/bcrypt/bcrypt.service';
+import { CookiesService } from 'src/modules/libs/cookies/cookies.service';
 import { MailQueueService } from 'src/modules/libs/job-queue/mail-queue/providers/mail-queue.service';
 import { RedisService } from 'src/modules/libs/redis/redis.service';
 import { TokenService } from 'src/modules/libs/token/token.service';
@@ -39,7 +48,8 @@ export class AuthService {
     private tokenService: TokenService,
     private bcryptService: BcryptService,
     private mailQueueService: MailQueueService,
-    private redisService: RedisService
+    private redisService: RedisService,
+    private cookiesService: CookiesService
   ) {}
 
   signup = async (data: SignupRequestDTO): Promise<SignupResponseDTO> => {
@@ -63,8 +73,11 @@ export class AuthService {
     return { ...createdUser };
   };
 
-  login = async (body: LoginBodyDTO): Promise<LoginResponseDTO> => {
-    const { email, password, otpCode } = body;
+  login = async (
+    body: LoginBodyDTO,
+    res: Response
+  ): Promise<LoginResponseDTO> => {
+    const { email, password } = body;
     const user = await this.prismaService.user
       .findFirstOrThrow({
         where: { email }
@@ -95,44 +108,91 @@ export class AuthService {
     }
 
     if (user.isEnableTwoFactorAuth) {
-      if (!otpCode) {
-        throw new LoginException({
-          message: 'Two factor authenticator code is required',
-          errorType: ELoginExceptionErrorType.REQUIRED_2FA_OTP
-        });
-      }
-      const twofaSecretKey = await this.redisService.getTwoFASecretKey(user.id);
-      if (!twofaSecretKey) {
-        throw new Error(
-          `Can not find 2FA secret key of user with id: ${user.id} in database`
-        );
-      }
-      const isValidOtp = authenticator.verify({
-        secret: twofaSecretKey,
-        token: otpCode
+      const twoFAPayloadToken = await this.tokenService.signTwoFactorAuthToken({
+        userId: user.id,
+        email: user.email
       });
 
-      if (!isValidOtp) {
-        throw new LoginException({
-          message: 'Two factor authenticator code is invalid',
-          errorType: ELoginExceptionErrorType.INVALID_2FA_OTP
-        });
-      }
+      this.cookiesService.setCookie(
+        res,
+        ECookieName.TWO_FACTOR_AUTH_TOKEN,
+        twoFAPayloadToken,
+        {
+          expires: new Date(
+            Date.now() + ETokenExpiration.TWO_FACTOR_AUTH_TOKEN * 1000
+          )
+        }
+      );
+
+      await this.redisService.setTwoFAToken(user.id, twoFAPayloadToken);
+
+      throw new LoginException({
+        message: 'Two factor authenticator code is required',
+        errorType: ELoginExceptionErrorType.REQUIRED_2FA_OTP
+      });
     }
 
     const jwtPayload: TJWTPayload = { sub: user.id, email: user.email };
-    const { token: accessToken, expiresIn } =
-      await this.tokenService.signAccessToken(jwtPayload);
-    const refreshToken = await this.tokenService.signRefreshToken(jwtPayload);
+    await this.tokenService.createAccessTokenAndRefreshToken(jwtPayload, res);
 
-    await this.redisService.setUserRefreshToken(user.id, refreshToken);
+    return { user };
+  };
 
-    return {
-      user,
-      accessToken,
-      refreshToken,
-      expiresIn
-    };
+  verifyTwoFactorAuth = async (
+    token: string,
+    body: VerifyTwoFactorAuthBodyDTO,
+    res: Response
+  ): Promise<LoginResponseDTO> => {
+    const decodedTwoFactorAuthToken =
+      await this.tokenService.verifyTwoFactorAuthToken(token);
+
+    if (!decodedTwoFactorAuthToken) {
+      throw new BadRequestException('Invalid two factor authenticator token');
+    }
+
+    const { userId, email } = decodedTwoFactorAuthToken;
+
+    const twoFactorAuthToken = await this.redisService.getTwoFAToken(userId);
+    if (!twoFactorAuthToken) {
+      throw new BadRequestException('Invalid two factor authenticator token');
+    }
+
+    const { otpCode } = body;
+
+    const user = await this.prismaService.user
+      .findFirstOrThrow({
+        where: { id: userId, email }
+      })
+      .catch(() => {
+        throw new NotFoundException('User not found');
+      });
+
+    if (!user.isEnableTwoFactorAuth) {
+      throw new BadRequestException('Two factor authentication is not enabled');
+    }
+
+    const twofaSecretKey = await this.redisService.getTwoFASecretKey(userId);
+    if (!twofaSecretKey) {
+      throw new Error(
+        `Can not find 2FA secret key of user with id: ${userId} in database`
+      );
+    }
+    const isValidOtp = authenticator.verify({
+      secret: twofaSecretKey,
+      token: otpCode
+    });
+
+    if (!isValidOtp) {
+      throw new BadRequestException('Two factor authenticator code is invalid');
+    }
+
+    const jwtPayload: TJWTPayload = { sub: user.id, email: user.email };
+    await this.tokenService.createAccessTokenAndRefreshToken(jwtPayload, res);
+    await this.redisService.deleteTwoFAToken(userId);
+
+    this.cookiesService.clearCookie(res, ECookieName.TWO_FACTOR_AUTH_TOKEN);
+
+    return { user };
   };
 
   sendResetPasswordMail = async (
@@ -158,7 +218,7 @@ export class AuthService {
     const resetPasswordToken = await this.tokenService.signResetPasswordToken(
       resetPasswordTokenPayload
     );
-    const resetPasswordUrl = `${this.configService.get<string>('CLIENT_URL')}/reset-password?reset_password_token=${resetPasswordToken}`;
+    const resetPasswordUrl = `${this.configService.get<string>('CLIENT_URL')}/reset-password?type=reset&token=${resetPasswordToken}`;
 
     const resetPasswordMailData: TResetPasswordMailData = {
       to: email,
@@ -175,9 +235,11 @@ export class AuthService {
   };
 
   resetPassword = async (
-    body: ResetPasswordBodyDto
+    body: ResetPasswordBodyDto,
+    headers: ResetPasswordHeadersDTO
   ): Promise<ResetPasswordResponseDto> => {
-    const { token, newPassword } = body;
+    const { newPassword } = body;
+    const { token } = headers;
     const decodeResetPasswordToken =
       await this.tokenService.verifyResetPasswordToken(token);
     if (!decodeResetPasswordToken) {
@@ -207,11 +269,15 @@ export class AuthService {
     };
   };
 
-  refreshToken = async (refreshToken: string): Promise<LoginResponseDTO> => {
+  refreshToken = async (
+    refreshToken: string,
+    res: Response
+  ): Promise<RefreshTokenResponseDTO> => {
     const decodeRefreshToken =
       await this.tokenService.verifyRefreshToken(refreshToken);
 
     if (!decodeRefreshToken) {
+      this.cookiesService.clearAuthCookies(res);
       throw new BadRequestException('Invalid refresh token');
     }
 
@@ -219,6 +285,7 @@ export class AuthService {
       decodeRefreshToken.sub
     );
     if (!userRefreshToken || userRefreshToken !== refreshToken) {
+      this.cookiesService.clearAuthCookies(res);
       throw new BadRequestException('Invalid refresh token');
     }
 
@@ -236,17 +303,11 @@ export class AuthService {
         throw new NotFoundException('User not found');
       });
 
-    const { token: newAccessToken, expiresIn } =
-      await this.tokenService.signAccessToken(payload);
-    const newRefreshToken = await this.tokenService.signRefreshToken(payload);
-
-    await this.redisService.setUserRefreshToken(userId, newRefreshToken);
+    await this.tokenService.createAccessTokenAndRefreshToken(payload, res);
 
     return {
-      user,
-      accessToken: newAccessToken,
-      expiresIn,
-      refreshToken: newRefreshToken
+      message: 'Refresh token successfully',
+      user
     };
   };
 }

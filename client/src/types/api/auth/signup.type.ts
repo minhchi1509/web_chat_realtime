@@ -1,11 +1,7 @@
-type TSignupBody = {
+export type TSignupBody = {
   fullName: string;
   email: string;
   password: string;
-};
-
-export type TSignupRequest = {
-  body: TSignupBody;
 };
 
 export type TSignupResponse = {

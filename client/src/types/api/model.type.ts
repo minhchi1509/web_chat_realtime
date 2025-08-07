@@ -1,3 +1,5 @@
+import { EMessageEmotionType } from 'src/constants/enum';
+
 export type TMessageMedia = 'PHOTO' | 'VIDEO' | 'AUDIO' | 'FILE';
 export type TConversationRole = 'ADMIN' | 'MEMBER';
 
@@ -28,4 +30,11 @@ export type TConversationParticipantResponse = {
   id: string;
   profile: TUserResponse;
   role: TConversationRole;
+};
+
+export type MessageEmotionResponse = {
+  id: string;
+  type: EMessageEmotionType;
+  participant: TConversationParticipantResponse;
+  createdAt: string;
 };

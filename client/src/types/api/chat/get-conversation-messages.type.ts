@@ -1,4 +1,5 @@
 import {
+  MessageEmotionResponse,
   TConversationParticipantResponse,
   TMessageMediaResponse
 } from 'src/types/api/model.type';
@@ -9,6 +10,7 @@ export type TConversationMessageResponse = {
   sender: TConversationParticipantResponse;
   content: string | null;
   mediaList: TMessageMediaResponse[];
+  emotions: MessageEmotionResponse[];
   createdAt: string;
   isLastMessageOfConversation: boolean;
   isShowSeperateTime: boolean;

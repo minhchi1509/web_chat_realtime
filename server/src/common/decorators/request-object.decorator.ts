@@ -3,11 +3,21 @@ import { plainToInstance } from 'class-transformer';
 
 import { IRequest } from 'src/common/types/common.type';
 
-export const RequestHeader = createParamDecorator(
-  (targetDTO: any, ctx: ExecutionContext) => {
+export const CustomHeaders = createParamDecorator(
+  async (targetDTO: any, ctx: ExecutionContext) => {
     const headers = ctx.switchToHttp().getRequest<IRequest>().headers;
-    const headersInstance = plainToInstance(targetDTO, headers);
+    const headersInstance = plainToInstance(targetDTO, headers, {
+      excludeExtraneousValues: true
+    }) as object;
+
     return headersInstance;
+  }
+);
+
+export const Cookies = createParamDecorator(
+  (data: string, ctx: ExecutionContext) => {
+    const request = ctx.switchToHttp().getRequest();
+    return data ? request.cookies?.[data] : request.cookies;
   }
 );
 

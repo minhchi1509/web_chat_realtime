@@ -5,7 +5,6 @@ import { FileText, Play, Send, XIcon } from 'lucide-react';
 import Image from 'next/image';
 import React, { FC } from 'react';
 
-import { sendMessage } from 'src/actions/chat.actions';
 import { Button } from 'src/components/ui/shadcn-ui/button';
 import { Input } from 'src/components/ui/shadcn-ui/input';
 import { ScrollArea, ScrollBar } from 'src/components/ui/shadcn-ui/scroll-area';
@@ -14,9 +13,10 @@ import {
   MAX_MESSAGE_FILE_PER_UPLOAD,
   MAX_MESSAGE_FILE_SIZE
 } from 'src/constants/variables';
+import { chatService } from 'src/services';
 import { TUploadFile } from 'src/types/common.type';
 import { TErrorResponse } from 'src/types/error-response.type';
-import { cn, executeServerAction } from 'src/utils/common.util';
+import { cn } from 'src/utils/common.util';
 import { showErrorToast } from 'src/utils/toast.util';
 
 interface IChatActionProps {
@@ -54,7 +54,7 @@ const ChatAction: FC<IChatActionProps> = ({
         messageFiles.forEach((file) => {
           formData.append('messageFiles', file.originalFileObject);
         });
-        await executeServerAction(() => sendMessage(conversationId, formData));
+        await chatService.sendMessage(conversationId, formData);
       },
       onError: (error: TErrorResponse) => {
         showErrorToast(error.message);

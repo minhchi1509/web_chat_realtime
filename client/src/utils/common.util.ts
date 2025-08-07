@@ -10,7 +10,7 @@ import {
   TSafeServerActionFn,
   TServerActionFnReturn
 } from 'src/types/common.type';
-import { TErrorData } from 'src/types/error-response.type';
+import { TErrorData, TErrorResponse } from 'src/types/error-response.type';
 
 export const delay = (seconds: number) =>
   new Promise((resolve) => {
@@ -55,6 +55,37 @@ export const executeServerAction = async <D>(
     throw result.error;
   }
   return result.data;
+};
+
+export const formatErrorResponse = (
+  error: AxiosError<TErrorData>
+): TErrorResponse => {
+  const errorResponse = error.response!;
+  const errorResponseData = errorResponse.data;
+  const errorMessage = errorResponseData.message;
+  return {
+    message: errorMessage,
+    data: errorResponseData
+  };
+};
+
+export const cloneRequest = (config: any) => {
+  const clonedConfig = {
+    ...config,
+    headers: { ...config.headers },
+    data: config.data
+  };
+
+  // Nếu là FormData, clone bằng cách tạo bản sao mới
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    const newFormData = new FormData();
+    config.data.forEach((value: any, key: any) => {
+      newFormData.append(key, value);
+    });
+    clonedConfig.data = newFormData;
+  }
+
+  return clonedConfig;
 };
 
 export const isRouteMatch = (route: string, urlPatterns: string[]) => {

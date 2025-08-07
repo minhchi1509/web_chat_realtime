@@ -1,3 +1,5 @@
+import { ContextType, HttpException, HttpStatus } from '@nestjs/common';
+import { WsException } from '@nestjs/websockets';
 import { MessageMediaType } from '@prisma/client';
 import { ClassConstructor, plainToClassFromExist } from 'class-transformer';
 
@@ -22,4 +24,22 @@ export const getMediaType = (mimeType: string): MessageMediaType => {
     return 'AUDIO';
   }
   return 'FILE';
+};
+
+export const throwErrorByContextType = (
+  contextType: ContextType,
+  response: string | object,
+  httpOptions?: {
+    statusCode?: HttpStatus;
+  }
+) => {
+  if (contextType === 'http') {
+    throw new HttpException(
+      response,
+      httpOptions?.statusCode ?? HttpStatus.BAD_REQUEST
+    );
+  } else if (contextType === 'ws') {
+    throw new WsException(response);
+  }
+  throw new Error('Unknown context type');
 };
