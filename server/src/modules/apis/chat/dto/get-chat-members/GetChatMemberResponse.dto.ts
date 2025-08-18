@@ -1,11 +1,11 @@
 import { Expose, Type } from 'class-transformer';
 
-import { UserResponseDTO } from 'src/common/dto/UserResponse.dto';
+import { ConversationParticipantProfileDTO } from 'src/common/dto/ConversationParticipantResponse.dto';
 
 export class GetChatMemberResponseDTO {
   @Expose()
-  @Type(() => UserResponseDTO)
-  profile: UserResponseDTO;
+  @Type(() => ConversationParticipantProfileDTO)
+  profile: ConversationParticipantProfileDTO;
 
   @Expose()
   isOnline: boolean;

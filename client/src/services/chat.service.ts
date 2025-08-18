@@ -1,9 +1,7 @@
 import axiosInstance from 'src/configs/axios.config';
-import { TCreatePrivateConversationResponse } from 'src/types/api/chat/create-private-conversation.type';
 import {
   TDropMessageEmotionBody,
-  TDropMessageEmotionParams,
-  TDropMessageEmotionResponse
+  TDropMessageEmotionParams
 } from 'src/types/api/chat/drop-message-emotion.type';
 import {
   TGetChatMembersQuery,
@@ -12,6 +10,7 @@ import {
 import { TGetConversationDetailsResponse } from 'src/types/api/chat/get-conversation-details.type';
 import { TGetConversationMessagesResponse } from 'src/types/api/chat/get-conversation-messages.type';
 import { TGetConversationsResponse } from 'src/types/api/chat/get-conversations.type';
+import { TSuccessMessageResponse } from 'src/types/api/model.type';
 import { TPaginationQuery } from 'src/types/common.type';
 
 export const getChatMembers = async (query: TGetChatMembersQuery) => {
@@ -57,7 +56,7 @@ export const sendMessage = async (
   conversationId: string,
   messageBody: FormData
 ) => {
-  const { data } = await axiosInstance.post(
+  const { data } = await axiosInstance.post<TSuccessMessageResponse>(
     `/api/v1/chat/${conversationId}/send-message`,
     messageBody
   );
@@ -65,7 +64,7 @@ export const sendMessage = async (
 };
 
 export const createPrivateConversation = async (receiverId: string) => {
-  const { data } = await axiosInstance.post<TCreatePrivateConversationResponse>(
+  const { data } = await axiosInstance.post<TSuccessMessageResponse>(
     '/api/v1/chat/private/create',
     { receiverId }
   );
@@ -76,9 +75,29 @@ export const dropMessageEmotion = async (
   body: TDropMessageEmotionBody,
   params: TDropMessageEmotionParams
 ) => {
-  const { data } = await axiosInstance.post<TDropMessageEmotionResponse>(
+  const { data } = await axiosInstance.post<TSuccessMessageResponse>(
     `/api/v1/chat/${params.conversationId}/messages/${params.messageId}/drop-emotion`,
     body
+  );
+  return data;
+};
+
+export const revokeMessage = async (
+  conversationId: string,
+  messageId: string
+) => {
+  const { data } = await axiosInstance.post<TSuccessMessageResponse>(
+    `/api/v1/chat/${conversationId}/messages/${messageId}/revoke`
+  );
+  return data;
+};
+
+export const deleteMessage = async (
+  conversationId: string,
+  messageId: string
+) => {
+  const { data } = await axiosInstance.post<TSuccessMessageResponse>(
+    `/api/v1/chat/${conversationId}/messages/${messageId}/delete`
   );
   return data;
 };

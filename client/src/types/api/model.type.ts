@@ -1,7 +1,36 @@
-import { EMessageEmotionType } from 'src/constants/enum';
+export enum EConversationRole {
+  ADMIN = 'ADMIN',
+  MEMBER = 'MEMBER'
+}
 
-export type TMessageMedia = 'PHOTO' | 'VIDEO' | 'AUDIO' | 'FILE';
-export type TConversationRole = 'ADMIN' | 'MEMBER';
+export enum EMessageMediaType {
+  PHOTO = 'PHOTO',
+  VIDEO = 'VIDEO',
+  AUDIO = 'AUDIO',
+  FILE = 'FILE'
+}
+
+export enum EMessageType {
+  TEXT = 'TEXT',
+  MEDIA = 'MEDIA',
+  SYSTEM = 'SYSTEM',
+  CALL = 'CALL',
+  ICON = 'ICON'
+}
+
+export enum ESystemAction {
+  CHANGE_BACKGROUND = 'CHANGE_BACKGROUND',
+  ADD_MEMBER = 'ADD_MEMBER',
+  REMOVE_MEMBER = 'REMOVE_MEMBER',
+  CHANGE_CONVERSATION_NAME = 'CHANGE_CONVERSATION_NAME',
+  LEAVE_CONVERSATION = 'LEAVE_CONVERSATION',
+  CHANGE_EMOTICONS = 'CHANGE_EMOTICONS'
+}
+
+export enum ECallStatus {
+  ENDED = 'ENDED',
+  MISSED = 'MISSED'
+}
 
 export type TUserResponse = {
   id: string;
@@ -22,19 +51,23 @@ export type TConversationResponse = {
 export type TMessageMediaResponse = {
   id: string;
   url: string;
-  type: TMessageMedia;
+  type: EMessageMediaType;
   fileName: string | null;
 };
 
 export type TConversationParticipantResponse = {
   id: string;
-  profile: TUserResponse;
-  role: TConversationRole;
+  profile: Omit<TUserResponse, 'email' | 'isEnableTwoFactorAuth'>;
+  role: EConversationRole;
 };
 
-export type MessageEmotionResponse = {
+export type TMessageEmotionResponse = {
   id: string;
-  type: EMessageEmotionType;
+  emojiCode: string;
   participant: TConversationParticipantResponse;
   createdAt: string;
+};
+
+export type TSuccessMessageResponse = {
+  message: string;
 };

@@ -24,7 +24,6 @@ import { ConversationPolicyGuard } from 'src/common/guards/conversation-policy.g
 import { plainToInstancePaginationResponse } from 'src/common/utils/common.util';
 import { ChatService } from 'src/modules/apis/chat/chat.service';
 import { CreatePrivateChatBodyDTO } from 'src/modules/apis/chat/dto/create-private-chat/CreatePrivateChatBody.dto';
-import { CreatePrivateChatResponseDTO } from 'src/modules/apis/chat/dto/create-private-chat/CreatePrivateChatResponse.dto';
 import { DropMessageEmotionBodyDTO } from 'src/modules/apis/chat/dto/drop-message-emotion/DropMessageEmotionBody.dto';
 import { GetChatMemberResponseDTO } from 'src/modules/apis/chat/dto/get-chat-members/GetChatMemberResponse.dto';
 import { GetChatMembersQueryDTO } from 'src/modules/apis/chat/dto/get-chat-members/GetChatMembersQuery.dto';
@@ -61,12 +60,12 @@ export class ChatController {
   async createPrivateChat(
     @Body() body: CreatePrivateChatBodyDTO,
     @UserId() userId: string
-  ): Promise<CreatePrivateChatResponseDTO> {
+  ): Promise<MessageResponseDTO> {
     const createdConversation = await this.chatService.createPrivateChat(
       userId,
       body.receiverId
     );
-    return plainToInstance(CreatePrivateChatResponseDTO, createdConversation);
+    return plainToInstance(MessageResponseDTO, createdConversation);
   }
 
   @Get('conversations')

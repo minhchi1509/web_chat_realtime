@@ -6,7 +6,7 @@ export type TGetChatMembersQuery = TPaginationQuery & {
 };
 
 type TGetChatMemberResponse = {
-  profile: TUserResponse;
+  profile: Omit<TUserResponse, 'email' | 'isEnableTwoFactorAuth'>;
   isOnline: boolean;
 };
 

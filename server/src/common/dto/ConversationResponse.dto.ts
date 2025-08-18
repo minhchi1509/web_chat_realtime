@@ -5,10 +5,10 @@ export class ConversationResponseDTO {
   id: string;
 
   @Expose()
-  name: string | null;
+  name: string;
 
   @Expose()
-  thumbnail: string | null;
+  thumbnail: string;
 
   @Expose()
   isGroupChat: boolean;

@@ -25,7 +25,6 @@ import {
   getMediaType
 } from 'src/common/utils/common.util';
 import { formatMessageReactions } from 'src/common/utils/message.util';
-import { CreatePrivateChatResponseDTO } from 'src/modules/apis/chat/dto/create-private-chat/CreatePrivateChatResponse.dto';
 import { GetChatMemberResponseDTO } from 'src/modules/apis/chat/dto/get-chat-members/GetChatMemberResponse.dto';
 import { GetChatMembersQueryDTO } from 'src/modules/apis/chat/dto/get-chat-members/GetChatMembersQuery.dto';
 import { GetConversationDetailsResponseDTO } from 'src/modules/apis/chat/dto/get-conversation-details/GetConversationDetailsResponse.dto';
@@ -97,7 +96,7 @@ export class ChatService {
   async createPrivateChat(
     userId: string,
     receiverId: string
-  ): Promise<CreatePrivateChatResponseDTO> {
+  ): Promise<MessageResponseDTO> {
     if (userId === receiverId) {
       throw new BadRequestException('You cannot create chat with yourself');
     }
@@ -118,8 +117,7 @@ export class ChatService {
 
     if (existingConversation) {
       return {
-        message: 'Private chat created successfully',
-        createdConversation: existingConversation
+        message: 'Private chat created successfully'
       };
     }
 
@@ -131,7 +129,7 @@ export class ChatService {
         throw new NotFoundException('Received user not found');
       });
 
-    const createdConversation = await this.prismaService.conversation.create({
+    const _createdConversation = await this.prismaService.conversation.create({
       data: {
         conversationParticipants: {
           createMany: {
@@ -141,8 +139,7 @@ export class ChatService {
       }
     });
     return {
-      message: 'Private chat created successfully',
-      createdConversation
+      message: 'Private chat created successfully'
     };
   }
 

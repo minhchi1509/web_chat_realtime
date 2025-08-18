@@ -67,7 +67,6 @@ export const formatMessageReactions = (
 
   return {
     total: reactions.length,
-    topReactions,
-    sortedReactions
+    topReactions
   };
 };

@@ -1,9 +1,8 @@
-import { ApiProperty, getSchemaPath } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 import { CallStatus, ESystemAction, MessageType } from '@prisma/client';
 import { Expose, Type } from 'class-transformer';
 
 import { ConversationParticipantResponseDTO } from 'src/common/dto/ConversationParticipantResponse.dto';
-import { MessageEmotionResponseDTO } from 'src/common/dto/MessageEmotionResponse.dto';
 import { MessageMediaResponseDTO } from 'src/common/dto/MessageMediaResponse.dto';
 
 class ParentMessageResponseDTO {
@@ -38,18 +37,6 @@ export class MessageReactionsDataDTO {
 
   @Expose()
   topReactions: string[];
-
-  @Expose()
-  @ApiProperty({
-    type: 'object',
-    additionalProperties: {
-      type: 'array',
-      items: { $ref: getSchemaPath(MessageEmotionResponseDTO) }
-    },
-    description:
-      'Object mapping reaction types to arrays of MessageEmotionResponseDTO'
-  })
-  sortedReactions: { [key: string]: MessageEmotionResponseDTO[] };
 }
 
 export class ConversationMessageResponseDTO {
