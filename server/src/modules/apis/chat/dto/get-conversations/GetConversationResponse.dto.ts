@@ -1,15 +1,10 @@
 import { Expose, Type } from 'class-transformer';
 
-import { ConversationParticipantResponseDTO } from 'src/common/dto/ConversationParticipantResponse.dto';
 import { ConversationResponseDTO } from 'src/common/dto/ConversationResponse.dto';
 
 class LastMessageResponseDTO {
   @Expose()
   id: string;
-
-  @Expose()
-  @Type(() => ConversationParticipantResponseDTO)
-  sender: ConversationParticipantResponseDTO;
 
   @Expose()
   isSeen: boolean;

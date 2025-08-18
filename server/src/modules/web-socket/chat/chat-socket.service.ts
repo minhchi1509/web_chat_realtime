@@ -1,7 +1,7 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
-import { WsException } from '@nestjs/websockets';
 
 import { TExtendedPrismaClient } from 'src/common/configs/prisma.config';
+import { ESortType } from 'src/common/constants/common.enum';
 import { EProviderKey } from 'src/common/constants/provider-key.enum';
 import { SOCKET_EVENTS_NAME_TO_CLIENT } from 'src/common/constants/socket-events.constant';
 import { RedisService } from 'src/modules/libs/redis/redis.service';
@@ -24,7 +24,7 @@ export class ChatSocketService {
   ) {
     const conversationMembers =
       await this.prismaService.conversationParticipant.findMany({
-        where: { conversationId },
+        where: { conversationId, leftAt: null },
         select: { userId: true }
       });
     const allMembersSocketIds = (
@@ -44,30 +44,25 @@ export class ChatSocketService {
     conversationId: string,
     userId: string
   ) {
-    const conversation = await this.prismaService.conversation
-      .findFirstOrThrow({
+    const _userParticipantId =
+      await this.redisService.getConversationParticipantId(
+        conversationId,
+        userId
+      );
+
+    const lastMessageOfConversation =
+      await this.prismaService.message.findFirst({
         where: {
-          id: conversationId,
-          conversationParticipants: {
-            some: {
-              userId
-            }
-          }
+          conversationId
         },
-        select: {
-          messages: {
-            where: {
-              isLastMessageOfConversation: true
-            },
-            select: {
-              id: true
-            }
-          }
+        orderBy: {
+          createdAt: ESortType.DESC
         }
-      })
-      .catch(() => {
-        throw new WsException('Conversation not found');
       });
+
+    if (!lastMessageOfConversation) {
+      return;
+    }
 
     await this.prismaService.conversationParticipant.updateMany({
       where: {
@@ -75,14 +70,14 @@ export class ChatSocketService {
         userId
       },
       data: {
-        lastSeenMessageId: conversation.messages[0]?.id,
+        lastSeenMessageId: lastMessageOfConversation.id,
         lastSeenMessageAt: new Date()
       }
     });
 
     await this.sendNotificationToConversationMembers(
       conversationId,
-      SOCKET_EVENTS_NAME_TO_CLIENT.CHAT.NEW_USER_SEEN_MESSAGE,
+      SOCKET_EVENTS_NAME_TO_CLIENT.CHAT.CONVERSATION_DETAIL_UPDATED,
       { userId, conversationId }
     );
   }

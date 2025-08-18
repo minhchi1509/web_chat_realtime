@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import base64url from 'base64url';
 import { UploadApiOptions, UploadApiResponse, v2 } from 'cloudinary';
 import { MemoryStoredFile } from 'nestjs-form-data';
 import * as streamifier from 'streamifier';
@@ -26,8 +25,7 @@ export class CloudinaryService {
       }
     );
     const { secure_url: url, public_id: publicId } = uploadResponse;
-    const encodeURL = base64url.encode(url);
-    await this.redisService.setFilePublicId(encodeURL, publicId);
+    await this.redisService.setFilePublicId(url, publicId);
     return uploadResponse;
   };
 
@@ -36,11 +34,10 @@ export class CloudinaryService {
   };
 
   deleteFileByUrl = async (url: string): Promise<void> => {
-    const encodeURL = base64url.encode(url);
-    const filePublicId = await this.redisService.getFilePublicId(encodeURL);
+    const filePublicId = await this.redisService.getFilePublicId(url);
     if (filePublicId) {
       await this.deleteFileByPublicId(filePublicId);
-      await this.redisService.deleteFilePublicId(encodeURL);
+      await this.redisService.deleteFilePublicId(url);
     }
   };
 

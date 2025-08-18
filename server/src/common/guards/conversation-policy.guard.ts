@@ -39,7 +39,11 @@ export class ConversationPolicyGuard implements CanActivate {
 
     const conversationMember = await this.prismaService.conversationParticipant
       .findFirstOrThrow({
-        where: { conversationId, userId: user.sub }
+        where: {
+          conversationId,
+          userId: user.sub,
+          leftAt: null
+        }
       })
       .catch(() => {
         throw new ForbiddenException(

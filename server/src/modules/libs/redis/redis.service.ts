@@ -1,15 +1,24 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import base64url from 'base64url';
 
+import { TExtendedPrismaClient } from 'src/common/configs/prisma.config';
 import {
   EDevicePlatform,
   EOAuthProvider,
   ETokenExpiration
 } from 'src/common/constants/common.enum';
+import { EProviderKey } from 'src/common/constants/provider-key.enum';
+import { scrapeLinkMetadata } from 'src/common/utils/common.util';
+import { LinkMetadata } from 'src/modules/apis/chat/dto/get-conversation-messages/GetConversationMessageResponse.dto';
 import { RedisProvider } from 'src/modules/libs/redis/redis.provider';
 
 @Injectable()
 export class RedisService {
-  constructor(private redis: RedisProvider) {}
+  constructor(
+    private redis: RedisProvider,
+    @Inject(EProviderKey.PRISMA_PROVIDER)
+    private prismaService: TExtendedPrismaClient
+  ) {}
 
   setResetPasswordToken = async (email: string, token: string) => {
     await this.redis.set(
@@ -47,16 +56,19 @@ export class RedisService {
     await this.redis.del(`refresh_token:${userId}`);
   };
 
-  setFilePublicId = async (encodeURL: string, publicId: string) => {
+  setFilePublicId = async (fileUrl: string, publicId: string) => {
+    const encodeURL = base64url.encode(fileUrl);
     await this.redis.set(`file_public_id:${encodeURL}`, publicId);
   };
 
-  getFilePublicId = async (encodeURL: string) => {
+  getFilePublicId = async (fileUrl: string) => {
+    const encodeURL = base64url.encode(fileUrl);
     const publicId = await this.redis.get(`file_public_id:${encodeURL}`);
     return publicId;
   };
 
-  deleteFilePublicId = async (encodeURL: string) => {
+  deleteFilePublicId = async (fileUrl: string) => {
+    const encodeURL = base64url.encode(fileUrl);
     await this.redis.del(`file_public_id:${encodeURL}`);
   };
 
@@ -179,5 +191,69 @@ export class RedisService {
 
   deleteTwoFAToken = async (userId: string) => {
     await this.redis.del(`two_fa_token:${userId}`);
+  };
+
+  setLinkMetadata = async (url: string, metadata: LinkMetadata) => {
+    const encodeURL = base64url.encode(url);
+    await this.redis.set(
+      `link_metadata:${encodeURL}`,
+      JSON.stringify(metadata),
+      'EX',
+      60 * 60
+    );
+  };
+
+  getLinkMetadata = async (url: string): Promise<LinkMetadata> => {
+    const encodeURL = base64url.encode(url);
+    const metadata = await this.redis.get(`link_metadata:${encodeURL}`);
+    if (!metadata) {
+      const linkMetadata = await scrapeLinkMetadata(url);
+      await this.setLinkMetadata(url, linkMetadata);
+      return linkMetadata;
+    }
+    return JSON.parse(metadata);
+  };
+
+  setConversationParticipantId = async (
+    conversationId: string,
+    userId: string,
+    participantId: string
+  ) => {
+    await this.redis.set(
+      `conversation_participant_id_mapping:${conversationId}:${userId}`,
+      participantId
+    );
+  };
+
+  getConversationParticipantId = async (
+    conversationId: string,
+    userId: string
+  ) => {
+    const participantId = await this.redis.get(
+      `conversation_participant_id_mapping:${conversationId}:${userId}`
+    );
+    if (!participantId) {
+      const userParticipant = await this.prismaService.conversationParticipant
+        .findUniqueOrThrow({
+          where: {
+            userId_conversationId: {
+              userId,
+              conversationId
+            }
+          }
+        })
+        .catch(() => {
+          throw new ForbiddenException(
+            'You are not a participant in this conversation'
+          );
+        });
+      await this.setConversationParticipantId(
+        conversationId,
+        userId,
+        userParticipant.id
+      );
+      return userParticipant.id;
+    }
+    return participantId;
   };
 }

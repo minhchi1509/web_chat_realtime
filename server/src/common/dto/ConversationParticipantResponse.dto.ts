@@ -2,15 +2,24 @@ import { ApiProperty } from '@nestjs/swagger';
 import { ConversationRole } from '@prisma/client';
 import { Expose, Type } from 'class-transformer';
 
-import { UserResponseDTO } from 'src/common/dto/UserResponse.dto';
+export class ConversationParticipantProfileDTO {
+  @Expose()
+  id: string;
+
+  @Expose()
+  fullName: string;
+
+  @Expose()
+  avatar: string;
+}
 
 export class ConversationParticipantResponseDTO {
   @Expose()
   id: string;
 
   @Expose()
-  @Type(() => UserResponseDTO)
-  profile: UserResponseDTO;
+  @Type(() => ConversationParticipantProfileDTO)
+  profile: ConversationParticipantProfileDTO;
 
   @Expose()
   @ApiProperty({ enum: ConversationRole })

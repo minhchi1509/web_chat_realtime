@@ -26,13 +26,27 @@ enum MessageMediaType {
   FILE
 }
 
-enum MessageEmotionType {
-  LIKE
-  LOVE
-  WOW
-  HAHA
-  SAD
-  ANGRY
+// Loại tin nhắn
+enum MessageType {
+  TEXT // Tin nhắn văn bản
+  MEDIA // Tin nhắn có đính kèm (ảnh, video, file...)
+  SYSTEM // Tin nhắn hệ thống (thêm thành viên, đổi tên nhóm, đổi nền...)
+  CALL // Tin nhắn cuộc gọi (missed, ended, started)
+  ICON // Tin nhắn biểu tượng (emoji, sticker...)
+}
+
+enum ESystemAction {
+  CHANGE_BACKGROUND
+  ADD_MEMBER
+  REMOVE_MEMBER
+  CHANGE_CONVERSATION_NAME
+  LEAVE_CONVERSATION
+  CHANGE_EMOTICONS
+}
+
+enum CallStatus {
+  ENDED
+  MISSED
 }
 
 model User {
@@ -55,7 +69,7 @@ model Conversation {
   thumbnail   String?
   isGroupChat Boolean  @default(false) @map("is_group_chat")
   createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
 
   conversationParticipants ConversationParticipant[]
   messages                 Message[]
@@ -66,50 +80,70 @@ model Conversation {
 }
 
 model Message {
-  id                          String   @id @default(uuid())
-  content                     String?  @db.LongText
-  createdAt                   DateTime @default(now()) @map("created_at")
-  isLastMessageOfConversation Boolean  @default(true) @map("is_last_message_of_conversation")
-  isShowSeperateTime          Boolean  @default(false) @map("is_show_seperate_time")
+  id   String      @id @default(uuid())
+  type MessageType @default(TEXT)
 
+  content      String?        @db.LongText
+  systemAction ESystemAction? @map("system_action") // Nếu type = SYSTEM thì mới có giá trị
+
+  // Quan hệ đến chi tiết hành động hệ thống
+  systemActionDetail SystemActionDetail?
+
+  callStatus   CallStatus? @map("call_status") // Nếu type = CALL thì mới có giá trị
+  callDuration Int?        @map("call_duration") // Thời gian cuộc gọi (giây), nếu ENDED
+
+  createdAt            DateTime @default(now()) @map("created_at")
+  isRevokedForEveryone Boolean  @default(false) @map("is_revoked_for_everyone")
+
+  // Reply message
+  replyToMessageId String?  @map("reply_to_message_id")
+  replyToMessage   Message? @relation("message_replies", fields: [replyToMessageId], references: [id], onDelete: SetNull)
+
+  replies         Message[]                 @relation("message_replies")
   lastSeenBy      ConversationParticipant[] @relation("last_seen_message_by")
   messageMedias   MessageMedia[]
   messageEmotions MessageEmotion[]
+  deletedBy       DeletedMessage[]
 
   conversationId String       @map("conversation_id")
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  senderId String                  @map("sender_id")
-  sender   ConversationParticipant @relation(name: "participant_sent_message", fields: [senderId], references: [id])
+  senderId String?                  @map("sender_id")
+  sender   ConversationParticipant? @relation(name: "participant_sent_message", fields: [senderId], references: [id])
 
   @@index([conversationId])
-  @@index([isLastMessageOfConversation])
   @@index([createdAt])
   @@index([conversationId, createdAt])
-  @@index([conversationId, isLastMessageOfConversation])
   @@map("message")
 }
 
 model ConversationParticipant {
-  id                String           @id @default(uuid())
-  role              ConversationRole @default(MEMBER)
-  joinedAt          DateTime         @default(now()) @map("joined_at")
-  lastSeenMessageAt DateTime?        @map("last_seen_message_at")
+  id                       String           @id @default(uuid())
+  role                     ConversationRole @default(MEMBER)
+  joinedAt                 DateTime         @default(now()) @map("joined_at")
+  leftAt                   DateTime?        @map("left_at") // Thời điểm rời nhóm
+  lastSeenMessageAt        DateTime?        @map("last_seen_message_at")
+  lastDeleteConversationAt DateTime?        @map("last_delete_conversation_at")
 
   sentMessages           Message[]        @relation("participant_sent_message")
   droppedMessageEmotions MessageEmotion[]
+  deletedMessages        DeletedMessage[]
 
   userId String @map("user_id")
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   conversationId String       @map("conversation_id")
-  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   lastSeenMessageId String?  @map("last_seen_message_id")
-  lastSeenMessage   Message? @relation(name: "last_seen_message_by", fields: [lastSeenMessageId], references: [id])
+  lastSeenMessage   Message? @relation(name: "last_seen_message_by", fields: [lastSeenMessageId], references: [id], onDelete: SetNull)
+
+  actorSystemActions  SystemActionDetail[] @relation("actor_system_action")
+  targetSystemActions SystemActionDetail[] @relation("target_system_action")
 
   @@unique([userId, conversationId])
   @@index([userId]) // For finding user's conversations
+  @@index([userId, leftAt]) // For finding user's left conversations
   @@index([conversationId]) // For finding participants in a conversation
   @@index([lastSeenMessageId]) // For message tracking
   @@map("conversation_participant")
@@ -130,9 +164,9 @@ model MessageMedia {
 }
 
 model MessageEmotion {
-  id        String             @id @default(uuid())
-  type      MessageEmotionType
-  createdAt DateTime           @default(now()) @map("created_at")
+  id        String   @id @default(uuid())
+  emojiCode String   @map("emoji_code")
+  createdAt DateTime @default(now()) @map("created_at")
 
   messageId String  @map("message_id")
   message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
@@ -143,6 +177,40 @@ model MessageEmotion {
   @@unique([messageId, participantId])
   @@index([messageId]) // For finding emotions by message
   @@index([participantId]) // For finding emotions by participant
-  @@index([type]) // For counting emotion
+  @@index([emojiCode]) // For counting emotion
   @@map("message_emotion")
+}
+
+model DeletedMessage {
+  id        String   @id @default(uuid())
+  deletedAt DateTime @default(now()) @map("deleted_at")
+
+  messageId String  @map("message_id")
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  participantId String                  @map("participant_id")
+  participant   ConversationParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, participantId])
+  @@index([participantId])
+  @@index([messageId])
+  @@map("deleted_message")
+}
+
+model SystemActionDetail {
+  id String @id @default(uuid())
+
+  messageId String  @unique @map("message_id")
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  actorId String                  @map("actor_id") // ai thực hiện hành động
+  actor   ConversationParticipant @relation("actor_system_action", fields: [actorId], references: [id], onDelete: Cascade)
+
+  targetId String?                  @map("target_id") // ai là đối tượng (thêm vào, xóa khỏi nhóm...)
+  target   ConversationParticipant? @relation("target_system_action", fields: [targetId], references: [id], onDelete: SetNull)
+
+  oldValue String? @map("old_value") // ví dụ: tên cũ của nhóm
+  newValue String? @map("new_value") // ví dụ: tên mới của nhóm
+
+  @@map("system_action_detail")
 }

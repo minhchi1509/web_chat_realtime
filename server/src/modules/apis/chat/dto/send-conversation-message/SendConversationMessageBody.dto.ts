@@ -1,8 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ArrayMaxSize, IsArray, IsOptional } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsOptional,
+  IsUUID,
+  ValidateIf
+} from 'class-validator';
 import { IsFile, MaxFileSize, MemoryStoredFile } from 'nestjs-form-data';
 
 import { MAX_MESSAGE_FILE_SIZE } from 'src/common/constants/file.constant';
+import { Trim } from 'src/common/decorators/sanitizer/trim.sanitizer';
 
 export class SendConversationMessageDTO {
   @ApiProperty({
@@ -21,5 +28,11 @@ export class SendConversationMessageDTO {
   messageFiles?: MemoryStoredFile[];
 
   @IsOptional()
+  @Trim()
   content?: string;
+
+  @IsOptional()
+  @ValidateIf((o) => o.parentMessageId)
+  @IsUUID('4')
+  parentMessageId?: string;
 }

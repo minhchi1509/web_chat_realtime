@@ -4,7 +4,7 @@ export enum EMetadataKey {
 }
 
 export enum ETokenExpiration {
-  ACCESS_TOKEN = 2 * 60, // 2 minutes
+  ACCESS_TOKEN = 2 * 60 * 60, // 2 minutes
   REFRESH_TOKEN = 7 * 24 * 60 * 60, // 7 days
   RESET_PASSWORD_TOKEN = 5 * 60, // 5 minutes
   INIT_OAUTH_PASSWORD_TOKEN = 5 * 60, // 5 minutes

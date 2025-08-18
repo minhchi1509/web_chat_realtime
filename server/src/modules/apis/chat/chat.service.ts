@@ -1,31 +1,44 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException
 } from '@nestjs/common';
-import { MessageEmotionType, MessageMediaType } from '@prisma/client';
-import dayjs from 'dayjs';
+import {
+  Conversation,
+  Message,
+  MessageMediaType,
+  MessageType
+} from '@prisma/client';
 
 import { TExtendedPrismaClient } from 'src/common/configs/prisma.config';
 import { ESortType } from 'src/common/constants/common.enum';
 import { EProviderKey } from 'src/common/constants/provider-key.enum';
-import { SOCKET_EVENTS_NAME_TO_CLIENT } from 'src/common/constants/socket-events.constant';
+import { MessageResponseDTO } from 'src/common/dto/MessageResponse.dto';
 import { PaginationQueryDTO } from 'src/common/dto/PaginationQuery.dto';
 import { PaginationResponseDTO } from 'src/common/dto/PaginationResponse.dto';
-import { getMediaType } from 'src/common/utils/common.util';
+import {
+  containsOnlyEmojiOrWhitespace,
+  extractUrl,
+  getEmojiDisplayUrl,
+  getMediaType
+} from 'src/common/utils/common.util';
+import { formatMessageReactions } from 'src/common/utils/message.util';
 import { CreatePrivateChatResponseDTO } from 'src/modules/apis/chat/dto/create-private-chat/CreatePrivateChatResponse.dto';
-import { DropMessageEmotionResponseDTO } from 'src/modules/apis/chat/dto/drop-message-emotion/DropMessageEmotionResponse.dto';
 import { GetChatMemberResponseDTO } from 'src/modules/apis/chat/dto/get-chat-members/GetChatMemberResponse.dto';
 import { GetChatMembersQueryDTO } from 'src/modules/apis/chat/dto/get-chat-members/GetChatMembersQuery.dto';
 import { GetConversationDetailsResponseDTO } from 'src/modules/apis/chat/dto/get-conversation-details/GetConversationDetailsResponse.dto';
-import { GetConversationMessageResponseDTO } from 'src/modules/apis/chat/dto/get-conversation-messages/GetConversationMessageResponse.dto';
+import {
+  ActionsOnMessageDTO,
+  GetConversationMessageResponseDTO,
+  LinkMetadata
+} from 'src/modules/apis/chat/dto/get-conversation-messages/GetConversationMessageResponse.dto';
 import { GetConversationResponseDTO } from 'src/modules/apis/chat/dto/get-conversations/GetConversationResponse.dto';
 import { SendConversationMessageDTO } from 'src/modules/apis/chat/dto/send-conversation-message/SendConversationMessageBody.dto';
-import { SendConversationMessageResponseDTO } from 'src/modules/apis/chat/dto/send-conversation-message/SendConversationMessageResponse.dto';
 import { CloudinaryService } from 'src/modules/libs/cloudinary/cloudinary.service';
+import { CloudinaryQueueService } from 'src/modules/libs/job-queue/cloudinary-queue/providers/cloudinary-queue.service';
 import { RedisService } from 'src/modules/libs/redis/redis.service';
-import { ChatSocketService } from 'src/modules/web-socket/chat/chat-socket.service';
 
 @Injectable()
 export class ChatService {
@@ -34,7 +47,7 @@ export class ChatService {
     private prismaService: TExtendedPrismaClient,
     private redisService: RedisService,
     private cloudinaryService: CloudinaryService,
-    private chatSocketService: ChatSocketService
+    private cloudinaryQueueService: CloudinaryQueueService
   ) {}
 
   async getChatMembers(
@@ -133,27 +146,229 @@ export class ChatService {
     };
   }
 
+  getLastMessageResponseByConversation = async (
+    conversation: Conversation & {
+      conversationParticipants: Array<{
+        userId: string;
+        user: { fullName: string };
+      }>;
+    },
+    userId: string
+  ) => {
+    const userParticipantId =
+      await this.redisService.getConversationParticipantId(
+        conversation.id,
+        userId
+      );
+    // Find the last message not deleted by current user
+    const lastMessage = await this.prismaService.message.findFirst({
+      where: {
+        conversationId: conversation.id,
+        deletedBy: {
+          none: {
+            participantId: userParticipantId
+          }
+        }
+      },
+      orderBy: {
+        createdAt: ESortType.DESC
+      },
+      include: {
+        sender: {
+          include: {
+            user: true
+          }
+        },
+        lastSeenBy: {
+          select: {
+            userId: true
+          }
+        },
+        conversation: {
+          select: {
+            isGroupChat: true
+          }
+        },
+        messageMedias: {
+          select: {
+            type: true,
+            fileName: true
+          }
+        },
+        systemActionDetail: {
+          include: {
+            actor: {
+              include: {
+                user: true
+              }
+            },
+            target: {
+              include: {
+                user: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!lastMessage) {
+      return undefined;
+    }
+
+    // Prepare preview content based on message type
+    const isMessageSentByCurrentUser = lastMessage.sender?.userId === userId;
+    const isGroupChat = lastMessage.conversation.isGroupChat;
+    let previewContent = '';
+
+    const senderFullName = isMessageSentByCurrentUser
+      ? 'You'
+      : lastMessage.sender?.user.fullName || 'Unknown';
+
+    // Handle different message types
+    if (lastMessage.isRevokedForEveryone) {
+      previewContent = `${senderFullName} unsent a message`;
+    } else {
+      switch (lastMessage.type) {
+        case MessageType.TEXT:
+          previewContent = `${senderFullName}: ${lastMessage.content}`;
+          break;
+
+        case MessageType.ICON:
+          previewContent = `${senderFullName}: ${lastMessage.content}`;
+          break;
+
+        case MessageType.MEDIA: {
+          const photoCount = lastMessage.messageMedias.filter(
+            (media) => media.type === MessageMediaType.PHOTO
+          ).length;
+
+          if (photoCount > 0) {
+            previewContent = `${senderFullName} sent ${photoCount} photo${photoCount > 1 ? 's' : ''}.`;
+          } else {
+            const mediaType = lastMessage.messageMedias[0]?.type;
+            switch (mediaType) {
+              case MessageMediaType.VIDEO:
+                previewContent = `${senderFullName} sent a video.`;
+                break;
+              case MessageMediaType.AUDIO:
+                previewContent = `${senderFullName} sent an audio clip.`;
+                break;
+              case MessageMediaType.FILE:
+                previewContent = `${senderFullName} sent an attachment.`;
+                break;
+              default:
+                previewContent = `${senderFullName} sent media.`;
+            }
+          }
+          break;
+        }
+
+        case MessageType.SYSTEM: {
+          if (!lastMessage.systemActionDetail) {
+            previewContent = `System message`;
+            break;
+          }
+
+          const actorName =
+            lastMessage.systemActionDetail.actor.userId === userId
+              ? 'You'
+              : lastMessage.systemActionDetail.actor.user.fullName;
+
+          switch (lastMessage.systemAction) {
+            case 'CHANGE_BACKGROUND':
+              previewContent = `${actorName} changed the theme to ${lastMessage.systemActionDetail.newValue}`;
+              break;
+
+            case 'ADD_MEMBER':
+              if (lastMessage.systemActionDetail.target) {
+                previewContent = `${actorName} added ${lastMessage.systemActionDetail.target.user.fullName} to the group`;
+              }
+              break;
+
+            case 'REMOVE_MEMBER':
+              if (lastMessage.systemActionDetail.target) {
+                previewContent = `${actorName} removed ${lastMessage.systemActionDetail.target.user.fullName} from the group`;
+              }
+              break;
+
+            case 'CHANGE_CONVERSATION_NAME':
+              previewContent = `${actorName} changed the group name to ${lastMessage.systemActionDetail.newValue}`;
+              break;
+
+            case 'LEAVE_CONVERSATION':
+              previewContent = `${actorName} left the group`;
+              break;
+
+            case 'CHANGE_EMOTICONS':
+              previewContent = `${actorName} changed the conversation emoticons`;
+              break;
+
+            default:
+              previewContent = `System action occurred`;
+          }
+          break;
+        }
+
+        case MessageType.CALL: {
+          // Call only for private conversations
+          if (!isGroupChat) {
+            const partner = conversation.conversationParticipants?.find(
+              (p) => p.userId !== userId
+            );
+            const partnerFullName = partner?.user.fullName || 'Unknown';
+
+            if (lastMessage.callStatus === 'MISSED') {
+              if (isMessageSentByCurrentUser) {
+                previewContent = `${partnerFullName} missed your call`;
+              } else {
+                previewContent = `You missed a video call with ${partnerFullName}`;
+              }
+            } else if (lastMessage.callStatus === 'ENDED') {
+              previewContent = `The video call ended`;
+            }
+          }
+          break;
+        }
+
+        default:
+          previewContent = `Message received`;
+      }
+    }
+
+    return {
+      id: lastMessage.id,
+      isSeen: lastMessage.lastSeenBy.some(
+        (lastSeenBy) => lastSeenBy.userId === userId
+      ),
+      createdAt: lastMessage.createdAt,
+      previewContent: previewContent.replace(/^\s*\w/, (char) =>
+        char.toUpperCase()
+      )
+    };
+  };
+
   async getUserConversations(
     query: PaginationQueryDTO,
     currentUserId: string
   ): Promise<PaginationResponseDTO<GetConversationResponseDTO>> {
+    // Fetch conversations where user is a participant and there's at least one message
     const [conversations, pagination] = await this.prismaService.conversation
       .paginate({
         where: {
           conversationParticipants: {
             some: {
-              userId: currentUserId
+              userId: currentUserId,
+              leftAt: null
             }
           },
           messages: {
-            some: {
-              isLastMessageOfConversation: true
-            }
+            some: {}
           }
         },
         include: {
           conversationParticipants: {
-            select: {
+            include: {
               user: {
                 select: {
                   id: true,
@@ -174,158 +389,131 @@ export class ChatService {
         includePageCount: true
       });
 
-    const getLastMessageResponseByConversation = async (
-      conversationId: string
-    ) => {
-      const lastMessage = await this.prismaService.message.findFirst({
-        where: {
-          conversationId,
-          isLastMessageOfConversation: true
-        },
-        include: {
-          sender: {
-            include: {
-              user: true
-            }
-          },
-          lastSeenBy: {
-            select: {
-              userId: true
-            }
-          },
-          conversation: {
-            select: {
-              isGroupChat: true
-            }
-          },
-          _count: {
-            select: {
-              messageMedias: true
-            }
-          }
-        }
-      });
-
-      if (!lastMessage) {
-        throw new Error('Last message not found');
-      }
-
-      const isMessageSentByCurrentUser =
-        lastMessage.sender.userId === currentUserId;
-      const isGroupChat = lastMessage.conversation.isGroupChat;
-      const totalMedia = lastMessage._count.messageMedias;
-      const previewContent = lastMessage.content
-        ? lastMessage.content
-        : `sent ${totalMedia} media`;
-      const displaySender = isMessageSentByCurrentUser
-        ? 'You: '
-        : isGroupChat
-          ? `${lastMessage.sender.user.fullName.split(' ')[0]}: `
-          : '';
-
-      return {
-        id: lastMessage.id,
-        sender: lastMessage.sender,
-        isSeen: lastMessage.lastSeenBy.some(
-          (lastSeenBy) => lastSeenBy.userId === currentUserId
-        ),
-        createdAt: lastMessage.createdAt,
-        previewContent: `${displaySender}${previewContent}`
-          .toLowerCase()
-          .replace(/^\s*\w/, (char) => char.toUpperCase())
-      };
-    };
-
     const responseData = await Promise.all(
       conversations.map(
-        async (conversation): Promise<GetConversationResponseDTO> => {
-          const lastMessage = await getLastMessageResponseByConversation(
-            conversation.id
+        async (c): Promise<GetConversationResponseDTO | undefined> => {
+          const lastUserDeleteConversationAt = c.conversationParticipants.find(
+            (cp) => cp.userId === currentUserId
+          )?.lastDeleteConversationAt;
+
+          if (
+            lastUserDeleteConversationAt &&
+            lastUserDeleteConversationAt > c.updatedAt
+          ) {
+            return undefined;
+          }
+
+          const lastMessage = await this.getLastMessageResponseByConversation(
+            c,
+            currentUserId
           );
-          const partner = conversation.conversationParticipants.find(
-            (participant) => participant.user.id !== currentUserId
+
+          if (!lastMessage) {
+            return undefined;
+          }
+
+          const partner = c.conversationParticipants.find(
+            (participant) => participant.userId !== currentUserId
           );
+
           if (!partner) {
             throw new Error('Partner not found');
           }
-          const isOnline = conversation.isGroupChat
+
+          const isOnline = c.isGroupChat
             ? false
-            : (await this.redisService.getUserSocketId(partner.user.id))
-                .length > 0;
+            : (await this.redisService.getUserSocketId(partner.userId)).length >
+              0;
 
           return {
-            id: conversation.id,
-            name: conversation.name || partner.user.fullName,
-            thumbnail: conversation.thumbnail || partner.user.avatar,
-            isGroupChat: conversation.isGroupChat,
+            id: c.id,
+            name: c.name || partner.user.fullName,
+            thumbnail: c.thumbnail || partner.user.avatar,
+            isGroupChat: c.isGroupChat,
             isOnline,
-            createdAt: conversation.createdAt,
-            lastMessage: {
-              id: lastMessage.id,
-              sender: {
-                id: lastMessage.sender.userId,
-                profile: lastMessage.sender.user,
-                role: lastMessage.sender.role
-              },
-              isSeen: lastMessage.isSeen,
-              createdAt: lastMessage.createdAt,
-              previewContent: lastMessage.previewContent
-            }
+            createdAt: c.createdAt,
+            lastMessage
           };
         }
       )
     );
+
+    const successfulResponseData = responseData.filter((r) => r !== undefined);
+
     return {
       currentPage: pagination.currentPage,
       pageSize: query.pageSize,
       totalPage: pagination.pageCount,
       hasNextPage: !!pagination.nextPage,
-      data: responseData
+      data: successfulResponseData
     };
   }
 
+  validateActionOnMessage = async (
+    message: Message,
+    userParticipantId: string
+  ) => {
+    // Nếu message bị thu hồi hoặc là message hệ thống hoặc cuộc gọi
+    if (
+      message.isRevokedForEveryone ||
+      message.type === MessageType.SYSTEM ||
+      message.type === MessageType.CALL
+    ) {
+      throw new ForbiddenException('You can not perform this action');
+    }
+
+    //Người dùng không thể thực hiện hành động trên tin nhắn mà họ đã xóa bên họ
+    const deletedMessage = await this.prismaService.deletedMessage.findUnique({
+      where: {
+        messageId_participantId: {
+          messageId: message.id,
+          participantId: userParticipantId
+        }
+      }
+    });
+    if (deletedMessage) {
+      throw new ForbiddenException('You can not perform this action');
+    }
+  };
+
   sendConversationMessage = async (
     conversationId: string,
+    parentMessageId: string | undefined,
     userId: string,
     body: SendConversationMessageDTO
-  ): Promise<SendConversationMessageResponseDTO> => {
+  ): Promise<MessageResponseDTO> => {
     const { messageFiles, content } = body;
 
     if (!content && (!messageFiles || messageFiles.length === 0)) {
       throw new BadRequestException('Message content or media is required');
     }
 
-    const conversation = await this.prismaService.conversation
-      .findUniqueOrThrow({
-        where: {
-          id: conversationId
-        },
-        select: {
-          conversationParticipants: {
-            where: {
-              userId
-            },
-            select: {
-              id: true
-            }
-          }
-        }
-      })
-      .catch(() => {
-        throw new NotFoundException('Conversation not found');
-      });
+    const userParticipantId =
+      await this.redisService.getConversationParticipantId(
+        conversationId,
+        userId
+      );
 
-    const currentConversationParticipantId =
-      conversation.conversationParticipants[0]?.id;
-    if (!currentConversationParticipantId) {
-      throw new Error('Current conversation participant not found');
+    if (parentMessageId) {
+      // Kiểm tra sự tồn tại của message đang cần reply
+      const parentMessage = await this.prismaService.message
+        .findUniqueOrThrow({
+          where: { id: parentMessageId }
+        })
+        .catch(() => {
+          throw new NotFoundException('Parent message not found');
+        });
+
+      await this.validateActionOnMessage(parentMessage, userParticipantId);
     }
 
+    // Process uploaded files
     let messageMedias: {
       mediaType: MessageMediaType;
       url: string;
       fileName: string | null;
     }[] = [];
+
     if (messageFiles) {
       messageMedias = await Promise.all(
         messageFiles.map(async (messageFile) => {
@@ -351,72 +539,105 @@ export class ChatService {
       );
     }
 
-    const currentLastMessage = await this.prismaService.message.findFirst({
-      where: {
-        conversationId,
-        isLastMessageOfConversation: true
-      },
-      select: {
-        id: true,
-        createdAt: true
-      }
-    });
+    // Determine message type based on content
+    let messageType: MessageType = MessageType.TEXT;
+    // Check if content contains only spaces or emojis
+    if (content) {
+      const isHasOnlySpacesOrEmojis = containsOnlyEmojiOrWhitespace(content);
+      messageType = isHasOnlySpacesOrEmojis
+        ? MessageType.ICON
+        : MessageType.TEXT;
+    }
 
-    const createdMessage = await this.prismaService.message.create({
-      data: {
-        senderId: currentConversationParticipantId,
-        conversationId,
-        content,
-        isShowSeperateTime: currentLastMessage
-          ? dayjs().diff(
-              dayjs(currentLastMessage.createdAt || new Date()),
-              'minute'
-            ) >= 10
-          : true,
-        ...(messageMedias.length > 0 && {
+    // Group media by type for message creation
+    const photoMedias = messageMedias.filter(
+      (media) => media.mediaType === MessageMediaType.PHOTO
+    );
+
+    const nonPhotoMedias = messageMedias.filter(
+      (media) => media.mediaType !== MessageMediaType.PHOTO
+    );
+
+    // Array to store created messages
+    const createdMessages = [];
+
+    // Create photo message if there are photos (all photos in one message)
+    if (photoMedias.length > 0) {
+      const photoMessage = await this.prismaService.message.create({
+        data: {
+          senderId: userParticipantId,
+          conversationId,
+          type: MessageType.MEDIA,
+          content: null,
+          replyToMessageId: parentMessageId || null,
           messageMedias: {
             createMany: {
-              data: messageMedias.map((media) => ({
+              data: photoMedias.map((media) => ({
                 type: media.mediaType,
                 url: media.url,
                 fileName: media.fileName
               }))
             }
           }
-        }),
-        isLastMessageOfConversation: true
-      },
-      include: {
-        sender: {
-          include: {
-            user: true
-          }
-        },
-        messageMedias: true
-      }
-    });
+        }
+      });
+      createdMessages.push(photoMessage);
+    }
 
-    if (currentLastMessage) {
-      await this.prismaService.message.update({
+    // Create separate messages for each non-photo media
+    for (const media of nonPhotoMedias) {
+      const mediaMessage = await this.prismaService.message.create({
+        data: {
+          senderId: userParticipantId,
+          conversationId,
+          replyToMessageId: parentMessageId || null,
+          type: MessageType.MEDIA,
+          content: null,
+          messageMedias: {
+            createMany: {
+              data: [
+                {
+                  type: media.mediaType,
+                  url: media.url,
+                  fileName: media.fileName
+                }
+              ]
+            }
+          }
+        }
+      });
+      createdMessages.push(mediaMessage);
+    }
+
+    // Create text message if content exists
+    let textMessage = null;
+    if (content) {
+      textMessage = await this.prismaService.message.create({
+        data: {
+          senderId: userParticipantId,
+          conversationId,
+          replyToMessageId: parentMessageId || null,
+          type: messageType,
+          content
+        }
+      });
+      createdMessages.push(textMessage);
+    }
+
+    // Set the last message flag
+    const lastMessage = createdMessages[createdMessages.length - 1];
+    if (lastMessage) {
+      // Cập nhật last seen message của người dùng nếu có tin nhắn được tạo
+      await this.prismaService.conversationParticipant.update({
         where: {
-          id: currentLastMessage.id
+          id: userParticipantId
         },
         data: {
-          isLastMessageOfConversation: false
+          lastSeenMessageId: lastMessage.id,
+          lastSeenMessageAt: new Date()
         }
       });
     }
-
-    // Cập nhật last seen message của người dùng
-    await this.prismaService.conversationParticipant.update({
-      where: {
-        id: currentConversationParticipantId
-      },
-      data: {
-        lastSeenMessageId: createdMessage.id,
-        lastSeenMessageAt: new Date()
-      }
-    });
 
     await this.prismaService.conversation.update({
       where: { id: conversationId },
@@ -425,34 +646,8 @@ export class ChatService {
       }
     });
 
-    await this.chatSocketService.sendNotificationToConversationMembers(
-      conversationId,
-      SOCKET_EVENTS_NAME_TO_CLIENT.CHAT.NEW_CONVERSATION_MESSAGE,
-      { conversationId }
-    );
-
     return {
-      message: 'Message sent successfully',
-      sentMessage: {
-        id: createdMessage.id,
-        sender: {
-          id: createdMessage.sender.id,
-          profile: {
-            ...createdMessage.sender.user
-          },
-          role: createdMessage.sender.role
-        },
-        content: createdMessage.content,
-        mediaList: createdMessage.messageMedias.map((messageMedia) => ({
-          id: messageMedia.id,
-          url: messageMedia.url,
-          type: messageMedia.type,
-          fileName: messageMedia.fileName
-        })),
-        emotions: [],
-        createdAt: createdMessage.createdAt,
-        isLastMessageOfConversation: createdMessage.isLastMessageOfConversation
-      }
+      message: 'Message sent successfully'
     };
   };
 
@@ -461,10 +656,21 @@ export class ChatService {
     query: PaginationQueryDTO,
     userId: string
   ): Promise<PaginationResponseDTO<GetConversationMessageResponseDTO>> {
+    const userParticipantId =
+      await this.redisService.getConversationParticipantId(
+        conversationId,
+        userId
+      );
+
     const [messages, pagination] = await this.prismaService.message
       .paginate({
         where: {
-          conversationId
+          conversationId,
+          deletedBy: {
+            none: {
+              participantId: userParticipantId
+            }
+          }
         },
         include: {
           sender: {
@@ -486,6 +692,35 @@ export class ChatService {
                 }
               }
             }
+          },
+          systemActionDetail: {
+            include: {
+              actor: {
+                include: {
+                  user: true
+                }
+              },
+              target: {
+                include: {
+                  user: true
+                }
+              }
+            }
+          },
+          conversation: {
+            select: {
+              isGroupChat: true
+            }
+          },
+          replyToMessage: {
+            include: {
+              sender: {
+                include: {
+                  user: true
+                }
+              },
+              messageMedias: true
+            }
           }
         },
         orderBy: {
@@ -498,39 +733,133 @@ export class ChatService {
         includePageCount: true
       });
 
-    const paginatedData: GetConversationMessageResponseDTO[] = messages.map(
-      (m) => ({
-        id: m.id,
-        sender: {
-          id: m.sender.id,
-          profile: m.sender.user,
-          role: m.sender.role
-        },
-        content: m.content,
-        mediaList: m.messageMedias,
-        emotions: m.messageEmotions.map((emotion) => ({
-          id: emotion.id,
-          type: emotion.type,
-          participant: {
-            id: emotion.participant.id,
-            profile: emotion.participant.user,
-            role: emotion.participant.role
-          },
-          createdAt: emotion.createdAt
-        })),
-        createdAt: m.createdAt,
-        isLastMessageOfConversation: m.isLastMessageOfConversation,
-        isShowSeperateTime: m.isShowSeperateTime,
-        seenBy: m.lastSeenBy
+    // Helper function to format system message content
+    const formatSystemMessageContent = (message: any): string => {
+      if (!message.systemActionDetail) {
+        return 'System message';
+      }
+
+      const actorName =
+        message.systemActionDetail.actor.userId === userId
+          ? 'You'
+          : message.systemActionDetail.actor.user.fullName;
+
+      switch (message.systemAction) {
+        case 'CHANGE_BACKGROUND':
+          return `${actorName} changed the theme to ${message.systemActionDetail.newValue}`;
+
+        case 'ADD_MEMBER':
+          if (message.systemActionDetail.target) {
+            return `${actorName} added ${message.systemActionDetail.target.user.fullName} to the group`;
+          }
+          return `${actorName} added a member to the group`;
+
+        case 'REMOVE_MEMBER':
+          if (message.systemActionDetail.target) {
+            return `${actorName} removed ${message.systemActionDetail.target.user.fullName} from the group`;
+          }
+          return `${actorName} removed a member from the group`;
+
+        case 'CHANGE_CONVERSATION_NAME':
+          return `${actorName} changed the group name to ${message.systemActionDetail.newValue}`;
+
+        case 'LEAVE_CONVERSATION':
+          return `${actorName} left the group`;
+
+        case 'CHANGE_EMOTICONS':
+          return `${actorName} changed the conversation emoticons`;
+
+        default:
+          return `System action occurred`;
+      }
+    };
+
+    // Process the messages using metascraper for URLs
+    const metascraperPromises = messages.map(async (message) => {
+      let content = message.content;
+      let linkMetadata: LinkMetadata | null = null;
+
+      // For SYSTEM messages, format the content
+      if (message.type === MessageType.SYSTEM) {
+        content = formatSystemMessageContent(message);
+      }
+
+      // For TEXT messages, extract URLs and metadata
+      if (message.type === MessageType.TEXT && message.content) {
+        const url = extractUrl(message.content);
+
+        if (url) {
+          linkMetadata = await this.redisService.getLinkMetadata(url);
+        }
+      }
+
+      const actionsOnMessage: ActionsOnMessageDTO = {
+        canRevoke:
+          message.sender?.userId === userId && !message.isRevokedForEveryone,
+        canReply:
+          !message.isRevokedForEveryone &&
+          message.type !== MessageType.CALL &&
+          message.type !== MessageType.SYSTEM,
+        canDropEmotion:
+          !message.isRevokedForEveryone &&
+          message.type !== MessageType.CALL &&
+          message.type !== MessageType.SYSTEM
+      };
+
+      // Construct the message response according to DTO structure
+      const messageDTO: GetConversationMessageResponseDTO = {
+        id: message.id,
+        type: message.type,
+        systemAction: message.systemAction,
+        callStatus: message.callStatus,
+        callDuration: message.callDuration,
+        sender: message.sender
+          ? {
+              id: message.sender.id,
+              profile: message.sender.user,
+              role: message.sender.role
+            }
+          : null,
+        content,
+        mediaList: message.messageMedias,
+        reactionsData: formatMessageReactions(message.messageEmotions),
+        createdAt: message.createdAt,
+        isRevokedForEveryone: !!message.isRevokedForEveryone,
+        replyToMessage: message.replyToMessage
+          ? {
+              id: message.replyToMessage.id,
+              type: message.replyToMessage.type,
+              content: message.replyToMessage.content,
+              createdAt: message.replyToMessage.createdAt,
+              isRevokedForEveryone:
+                !!message.replyToMessage.isRevokedForEveryone,
+              sender: message.replyToMessage.sender
+                ? {
+                    id: message.replyToMessage.sender.id,
+                    profile: message.replyToMessage.sender.user,
+                    role: message.replyToMessage.sender.role
+                  }
+                : null,
+              mediaList: message.replyToMessage.messageMedias
+            }
+          : null,
+        seenBy: message.lastSeenBy
           .filter((v) => v.userId !== userId)
           .map((seenParticipant) => ({
             id: seenParticipant.id,
             profile: seenParticipant.user,
             role: seenParticipant.role,
             seenAt: seenParticipant.lastSeenMessageAt || new Date()
-          }))
-      })
-    );
+          })),
+        linkMetadata,
+        actionsOnMessage
+      };
+
+      return messageDTO;
+    });
+
+    // Wait for all metascraper promises to resolve
+    const paginatedData = await Promise.all(metascraperPromises);
 
     return {
       currentPage: pagination.currentPage,
@@ -592,88 +921,60 @@ export class ChatService {
     conversationId: string,
     messageId: string,
     userId: string,
-    emotionType: MessageEmotionType
-  ): Promise<DropMessageEmotionResponseDTO> {
+    emojiCode: string
+  ): Promise<MessageResponseDTO> {
+    //Validate emojiCode
+    const isValidEmoji = await getEmojiDisplayUrl(emojiCode);
+    if (!isValidEmoji) {
+      throw new BadRequestException('Invalid emoji code');
+    }
+
     // Find the message and check if it exists
     const message = await this.prismaService.message
       .findUniqueOrThrow({
         where: {
           id: messageId,
           conversationId
-        },
-        include: {
-          conversation: {
-            include: {
-              conversationParticipants: {
-                where: {
-                  userId
-                }
-              }
-            }
-          }
         }
       })
       .catch(() => {
         throw new NotFoundException('Message not found');
       });
 
-    // Safely get the participant ID
-    const participant = message.conversation.conversationParticipants[0];
-    if (!participant) {
-      throw new Error('Participant not found');
-    }
-    const participantId = participant.id;
+    const userParticipantId =
+      await this.redisService.getConversationParticipantId(
+        conversationId,
+        userId
+      );
+
+    await this.validateActionOnMessage(message, userParticipantId);
 
     // Check if an emotion already exists for this participant and message
     const existingEmotion = await this.prismaService.messageEmotion.findUnique({
       where: {
         messageId_participantId: {
           messageId,
-          participantId
-        }
-      },
-      include: {
-        participant: {
-          include: {
-            user: true
-          }
+          participantId: userParticipantId
         }
       }
     });
 
-    let result: DropMessageEmotionResponseDTO;
+    let result: MessageResponseDTO;
 
     if (existingEmotion) {
-      // Update existing emotion if type is different
-      if (existingEmotion.type !== emotionType) {
-        const updatedEmotion = await this.prismaService.messageEmotion.update({
+      // Update existing emotion if emojiCode is different
+      if (existingEmotion.emojiCode !== emojiCode) {
+        const _updatedEmotion = await this.prismaService.messageEmotion.update({
           where: {
             id: existingEmotion.id
           },
           data: {
-            type: emotionType
-          },
-          include: {
-            participant: {
-              include: {
-                user: true
-              }
-            }
+            emojiCode
           }
         });
 
         result = {
-          message: 'Message emotion updated successfully',
-          droppedEmotion: {
-            id: updatedEmotion.id,
-            type: updatedEmotion.type,
-            participant: {
-              id: updatedEmotion.participant.id,
-              profile: updatedEmotion.participant.user,
-              role: updatedEmotion.participant.role
-            },
-            createdAt: updatedEmotion.createdAt
-          }
+          message: 'Message emotion updated successfully'
         };
       } else {
         // Remove emotion if the same type is selected
@@ -684,57 +985,142 @@ export class ChatService {
         });
 
         result = {
-          message: 'Message emotion removed successfully',
-          droppedEmotion: {
-            id: existingEmotion.id,
-            type: existingEmotion.type,
-            participant: {
-              id: existingEmotion.participant.id,
-              profile: existingEmotion.participant.user,
-              role: existingEmotion.participant.role
-            },
-            createdAt: existingEmotion.createdAt
-          }
+          message: 'Message emotion removed successfully'
         };
       }
     } else {
       // Create a new emotion
-      const newEmotion = await this.prismaService.messageEmotion.create({
+      const _newEmotion = await this.prismaService.messageEmotion.create({
         data: {
-          type: emotionType,
+          emojiCode,
           messageId,
-          participantId
-        },
-        include: {
-          participant: {
-            include: {
-              user: true
-            }
-          }
+          participantId: userParticipantId
         }
       });
 
       result = {
-        message: 'Dropped message emotion successfully',
-        droppedEmotion: {
-          id: newEmotion.id,
-          type: newEmotion.type,
-          participant: {
-            id: newEmotion.participant.id,
-            profile: newEmotion.participant.user,
-            role: newEmotion.participant.role
-          },
-          createdAt: newEmotion.createdAt
-        }
+        message: 'Dropped message emotion successfully'
       };
     }
 
-    await this.chatSocketService.sendNotificationToConversationMembers(
-      message.conversationId,
-      SOCKET_EVENTS_NAME_TO_CLIENT.CHAT.NEW_MESSAGE_EMOTION,
-      { conversationId }
-    );
-
     return result;
   }
+
+  revokeMessage = async (
+    conversationId: string,
+    messageId: string,
+    userId: string
+  ): Promise<MessageResponseDTO> => {
+    const message = await this.prismaService.message
+      .findUniqueOrThrow({
+        where: {
+          id: messageId,
+          conversationId
+        },
+        include: {
+          sender: {
+            include: {
+              user: {
+                select: {
+                  id: true
+                }
+              }
+            }
+          },
+          messageMedias: true
+        }
+      })
+      .catch(() => {
+        throw new NotFoundException('Message not found');
+      });
+
+    if (message.sender?.user.id !== userId) {
+      throw new ForbiddenException(
+        'You are not allowed to revoke this message'
+      );
+    }
+
+    const userParticipantId =
+      await this.redisService.getConversationParticipantId(
+        conversationId,
+        userId
+      );
+
+    await this.validateActionOnMessage(message, userParticipantId);
+
+    // Xóa content, media của message nếu có
+    const _revokeMessage = await this.prismaService.message.update({
+      where: {
+        id: messageId
+      },
+      data: {
+        content: null,
+        messageMedias: {
+          deleteMany: {
+            messageId
+          }
+        },
+        messageEmotions: {
+          deleteMany: {
+            messageId
+          }
+        }
+      },
+      include: {
+        messageMedias: {
+          select: {
+            url: true
+          }
+        }
+      }
+    });
+
+    await this.cloudinaryQueueService.deleteFiles(
+      _revokeMessage.messageMedias.map((media) => media.url)
+    );
+
+    return {
+      message: 'Revoke message successfully!'
+    };
+  };
+
+  deleteMessage = async (
+    conversationId: string,
+    messageId: string,
+    userId: string
+  ): Promise<MessageResponseDTO> => {
+    const message = await this.prismaService.message
+      .findUniqueOrThrow({
+        where: {
+          id: messageId,
+          conversationId
+        }
+      })
+      .catch(() => {
+        throw new NotFoundException('Message not found');
+      });
+
+    if (message.type === MessageType.SYSTEM) {
+      throw new ForbiddenException(
+        'You are not allowed to delete this type of message'
+      );
+    }
+
+    const userParticipantId =
+      await this.redisService.getConversationParticipantId(
+        conversationId,
+        userId
+      );
+
+    const _deletedMessage = await this.prismaService.deletedMessage.create({
+      data: {
+        messageId,
+        participantId: userParticipantId
+      }
+    });
+
+    return {
+      message: 'Delete message successfully!'
+    };
+  };
 }

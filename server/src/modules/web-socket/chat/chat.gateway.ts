@@ -16,7 +16,6 @@ import {
   WebSocketGateway,
   WebSocketServer
 } from '@nestjs/websockets';
-import { IsNotEmpty, IsString, IsUUID } from 'class-validator';
 import { Server, Socket } from 'socket.io';
 
 import {
@@ -32,13 +31,7 @@ import { WebSocketValidationPipe } from 'src/common/pipes/websocket-validation.p
 import { TJWTPayload } from 'src/common/types/token.type';
 import { RedisService } from 'src/modules/libs/redis/redis.service';
 import { ChatSocketService } from 'src/modules/web-socket/chat/chat-socket.service';
-
-class CreateMessageDto {
-  @IsUUID()
-  @IsString()
-  @IsNotEmpty()
-  conversationId: string;
-}
+import { MarkSeenMessageBodyDTO } from 'src/modules/web-socket/chat/dto/mark-seen-message/MarkSeenMessageBody.dto';
 
 @WebSocketGateway({
   namespace: '/chat',
@@ -90,7 +83,7 @@ export class ChatGateway
   }
 
   @SubscribeMessage(SUBSCRIBED_SOCKET_EVENTS_NAME.CHAT.USER_MARK_SEEN_MESSAGE)
-  async markSeenMessage(client: Socket, data: CreateMessageDto) {
+  async markSeenMessage(client: Socket, data: MarkSeenMessageBodyDTO) {
     const { sub: userId } = client.handshake.auth as TJWTPayload;
     if (userId && data.conversationId) {
       await this.chatSocketService.markSeenLatestMessageOfConversation(

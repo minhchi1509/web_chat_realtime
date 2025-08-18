@@ -8,11 +8,41 @@ class ParticipantSeenMessageResponseDTO extends ConversationParticipantResponseD
   seenAt: Date;
 }
 
+export class LinkMetadata {
+  @Expose()
+  url: string;
+
+  @Expose()
+  title: string | null;
+
+  @Expose()
+  description: string | null;
+
+  @Expose()
+  imageUrl: string | null;
+}
+
+export class ActionsOnMessageDTO {
+  @Expose()
+  canRevoke: boolean;
+
+  @Expose()
+  canReply: boolean;
+
+  @Expose()
+  canDropEmotion: boolean;
+}
+
 export class GetConversationMessageResponseDTO extends ConversationMessageResponseDTO {
   @Expose()
   @Type(() => ParticipantSeenMessageResponseDTO)
   seenBy: ParticipantSeenMessageResponseDTO[];
 
   @Expose()
-  isShowSeperateTime: boolean;
+  @Type(() => LinkMetadata)
+  linkMetadata: LinkMetadata | null;
+
+  @Expose()
+  @Type(() => ActionsOnMessageDTO)
+  actionsOnMessage: ActionsOnMessageDTO;
 }

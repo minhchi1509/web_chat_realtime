@@ -7,7 +7,6 @@ import { OAuthController } from 'src/modules/apis/auth/controllers/oauth.control
 import { OAuthService } from 'src/modules/apis/auth/services/oauth.service';
 import { BcryptModule } from 'src/modules/libs/bcrypt/bcrypt.module';
 import { CookiesModule } from 'src/modules/libs/cookies/cookies.module';
-import { GoogleOAuthModule } from 'src/modules/libs/google-oauth/google-oauth.module';
 import { MailQueueModule } from 'src/modules/libs/job-queue/mail-queue/mail-queue.module';
 import {
   PrismaModule,
@@ -25,7 +24,6 @@ import { TokenModule } from 'src/modules/libs/token/token.module';
     RedisModule,
     PrismaTestModule,
     PrismaModule,
-    GoogleOAuthModule,
     ConfigModule,
     StrategyModule,
     CookiesModule
