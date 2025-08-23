@@ -1,97 +1,167 @@
 import { useMutation } from '@tanstack/react-query';
-import React, { FC } from 'react';
+import Image from 'next/image';
+import { FC, useEffect } from 'react';
+import EmojiPicker, {
+  EmojiClickData,
+  Theme as EmojiPickerTheme
+} from 'emoji-picker-react';
 
-import { ReactionIcon } from 'src/assets/icons';
+import { HappyIcon, PlusIcon } from 'src/assets/icons';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger
 } from 'src/components/ui/shadcn-ui/popover';
-import EmotionReact from 'src/components/ui/shared/EmotionReact';
-import { EMessageEmotionType } from 'src/constants/enum';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from 'src/components/ui/shadcn-ui/tooltip';
 import { dropMessageEmotion } from 'src/services/chat.service';
+import { useConversationStore } from 'src/store/useConversationStore';
 import { TErrorResponse } from 'src/types/error-response.type';
-import { cn } from 'src/utils/common.util';
 import { showErrorToast } from 'src/utils/toast.util';
+import { useTheme } from 'next-themes';
+import { useInView } from 'react-intersection-observer';
+import { getEmojiDisplayUrl } from 'src/utils/message.util';
 
 interface IMessageReactionPopoverProps {
   conversationId: string;
   messageId: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onDropEmotionSuccess?: () => void | Promise<void>;
-  className?: string;
 }
 
-const MESSAGE_EMOTIONS_LIST = [
-  EMessageEmotionType.LOVE,
-  EMessageEmotionType.HAHA,
-  EMessageEmotionType.WOW,
-  EMessageEmotionType.SAD,
-  EMessageEmotionType.ANGRY,
-  EMessageEmotionType.LIKE
+const QUICK_MESSAGE_REACT_EMOTIONS = [
+  '2764',
+  '1f606',
+  '1f62e',
+  '1f622',
+  '1f621',
+  '1f44d'
 ];
 
 const MessageReactionPopover: FC<IMessageReactionPopoverProps> = ({
   conversationId,
-  messageId,
-  open,
-  onOpenChange,
-  onDropEmotionSuccess,
-  className
+  messageId
 }) => {
+  const { theme } = useTheme();
+  const {
+    currentMessageActions,
+    closeMessageActionsPopover,
+    openMessageActionsPopover
+  } = useConversationStore();
+
   const { mutate: triggerDropEmotionMessage } = useMutation({
     mutationFn: async ({
       messageId,
-      emotionType
+      emojiCode
     }: {
       messageId: string;
-      emotionType: EMessageEmotionType;
+      emojiCode: string;
     }) => {
-      await dropMessageEmotion({ emotionType }, { conversationId, messageId });
-    },
-    onSuccess: async () => {
-      await onDropEmotionSuccess?.();
+      await dropMessageEmotion({ emojiCode }, { conversationId, messageId });
     },
     onError: (error: TErrorResponse) => {
       showErrorToast(error.message);
     }
   });
 
+  const { ref: observerRef, inView } = useInView({
+    threshold: 1
+  });
+
+  const handleOpenEmojiPicker = () => {
+    openMessageActionsPopover(messageId, { openReactEmojiPicker: true });
+  };
+
+  const handleReactOnMessage = (emojiCode: string) => {
+    closeMessageActionsPopover();
+    triggerDropEmotionMessage({ messageId, emojiCode });
+  };
+
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    handleReactOnMessage(emojiData.unified);
+  };
+
+  useEffect(() => {
+    if (!inView) {
+      closeMessageActionsPopover();
+    }
+  }, [inView]);
+
   return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>
-        <button
-          className={cn(
-            'rounded-full p-1.5 hover:bg-muted self-center',
-            className
-          )}
-        >
-          <ReactionIcon
-            width={16}
-            height={16}
-            className="text-muted-foreground"
-          />
-        </button>
-      </PopoverTrigger>
+    <Popover
+      open={
+        (currentMessageActions.openReactPopover ||
+          currentMessageActions.openReactEmojiPicker) &&
+        currentMessageActions.messageId === messageId
+      }
+      onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          closeMessageActionsPopover();
+        } else {
+          openMessageActionsPopover(messageId, { openReactPopover: true });
+        }
+      }}
+    >
+      <Tooltip>
+        <TooltipTrigger>
+          <PopoverTrigger asChild>
+            <div
+              ref={observerRef}
+              className="flex size-7 cursor-pointer items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            >
+              <HappyIcon
+                width={16}
+                height={16}
+                className="text-[#65686C] dark:text-[#B0B3B8]"
+              />
+            </div>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>React</p>
+        </TooltipContent>
+      </Tooltip>
       <PopoverContent
-        className="flex w-auto gap-1 rounded-full px-3 py-2"
         align="center"
-        side="right"
+        side="top"
+        className="size-fit p-0 rounded-full"
       >
-        {MESSAGE_EMOTIONS_LIST.map((emotionType) => (
-          <EmotionReact
-            key={emotionType}
-            type={emotionType}
-            className="cursor-pointer transition-transform hover:scale-125"
-            onClick={() =>
-              triggerDropEmotionMessage({
-                messageId: messageId,
-                emotionType
-              })
+        {currentMessageActions.openReactEmojiPicker && (
+          <EmojiPicker
+            theme={
+              theme === 'dark' ? EmojiPickerTheme.DARK : EmojiPickerTheme.LIGHT
             }
+            onEmojiClick={handleEmojiClick}
+            skinTonesDisabled
+            height={400}
           />
-        ))}
+        )}
+        {currentMessageActions.openReactPopover && (
+          <div className="flex items-center gap-2 w-auto rounded-full px-4 py-2">
+            {QUICK_MESSAGE_REACT_EMOTIONS.map((emojiCode) => (
+              <Image
+                key={emojiCode}
+                width={32}
+                height={32}
+                alt="message-emotion"
+                className="h-8 hover:scale-120 transition-transform duration-200 cursor-pointer"
+                src={getEmojiDisplayUrl(emojiCode)}
+                onClick={() => handleReactOnMessage(emojiCode)}
+              />
+            ))}
+            <div
+              className="size-9 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center cursor-pointer hover:bg-zinc-300 dark:hover:bg-zinc-700 duration-200"
+              onClick={handleOpenEmojiPicker}
+            >
+              <PlusIcon
+                className="text-[#65686C] dark:text-[#B0B3B8]"
+                width={16}
+                height={16}
+              />
+            </div>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );

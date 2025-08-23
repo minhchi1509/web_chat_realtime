@@ -73,7 +73,7 @@ const ChatAction: FC<IChatActionProps> = ({
       )}
     >
       {messageFiles.length > 0 && (
-        <ScrollArea className="max-w-4xl" scrollViewPortClassName="py-2">
+        <ScrollArea className="max-w-4xl pb-2">
           <div className="flex gap-4">
             {messageFiles.map((file, index) => {
               const isVideoFile =
@@ -81,7 +81,7 @@ const ChatAction: FC<IChatActionProps> = ({
               const isImageFile =
                 file.originalFileObject.type.includes('image/');
               return (
-                <div key={index} className="relative shrink-0">
+                <div key={index} className="relative shrink-0 mt-2">
                   {(isVideoFile || isImageFile) && (
                     <Image
                       src={file.previewUrl}

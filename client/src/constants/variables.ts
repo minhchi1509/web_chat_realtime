@@ -10,3 +10,4 @@ export const MAX_MESSAGE_FILE_PER_UPLOAD = 5;
 export const EXCLUDE_FOOTER_PATHS = ['/messages{/*any}', '/dashboard'];
 export const EXCLUDE_SIDEBAR_PATHS = ['/messages{/*any}', '/dashboard'];
 export const EXCLUDE_HEADER_PATHS = ['/dashboard'];
+export const URL_REGEX = /https?:\/\/[^\s/$.?#].[^\s]*/gi;

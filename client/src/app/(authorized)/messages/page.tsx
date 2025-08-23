@@ -31,9 +31,12 @@ const MessagesPage = () => {
   ) {
     return (
       <div className="h-[calc(100vh-56px)] py-4 sm:py-8">
-        <PlayholderContent cardContentClassName="p-0 h-full" className="h-full">
+        <PlayholderContent
+          cardContentClassName="p-0 h-full"
+          className="h-full py-0"
+        >
           <div className="flex h-full">
-            <div className="flex flex-[3] flex-col border-r border-muted p-6 pr-4">
+            <div className="flex flex-[3] flex-col overflow-hidden border-r border-muted p-6 pr-4">
               <SearchChatMembers />
               <ConversationList />
             </div>

@@ -3,6 +3,7 @@ import { CallStatus, ESystemAction, MessageType } from '@prisma/client';
 import { Expose, Type } from 'class-transformer';
 
 import { ConversationParticipantResponseDTO } from 'src/common/dto/ConversationParticipantResponse.dto';
+import { MessageEmotionResponseDTO } from 'src/common/dto/MessageEmotionResponse.dto';
 import { MessageMediaResponseDTO } from 'src/common/dto/MessageMediaResponse.dto';
 
 class ParentMessageResponseDTO {
@@ -37,6 +38,10 @@ export class MessageReactionsDataDTO {
 
   @Expose()
   topReactions: string[];
+
+  @Expose()
+  @Type(() => MessageEmotionResponseDTO)
+  data: MessageEmotionResponseDTO[];
 }
 
 export class ConversationMessageResponseDTO {

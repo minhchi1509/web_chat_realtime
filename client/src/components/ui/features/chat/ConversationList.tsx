@@ -52,14 +52,14 @@ const ConversationList = () => {
                   key={index}
                   onClick={() => push(`/messages/${conversation.id}`)}
                 >
-                  <div className="relative mr-3.5">
+                  <div className="relative mr-3.5 shrink-0">
                     <ChatAvatarStatus
                       size={50}
                       src={conversation.thumbnail}
                       isOnline={conversation.isOnline}
                     />
                   </div>
-                  <div className="flex flex-1 flex-col gap-1">
+                  <div className="flex flex-1 flex-col gap-1 overflow-hidden">
                     <div className="flex items-center gap-2">
                       <p className="text-base font-medium">
                         {conversation.name}
@@ -70,7 +70,7 @@ const ConversationList = () => {
                     </div>
                     <p
                       className={cn(
-                        'line-clamp-1 text-xs text-muted-foreground',
+                        'line-clamp-1 text-xs text-muted-foreground truncate',
                         !conversation.lastMessage.isSeen && 'font-bold'
                       )}
                     >

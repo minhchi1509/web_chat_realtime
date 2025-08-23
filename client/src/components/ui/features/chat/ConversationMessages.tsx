@@ -1,10 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable tailwindcss/migration-from-tailwind-2 */
-'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
-import { FileText, Play } from 'lucide-react';
-import Image from 'next/image';
+'use client';
 import { FC, useEffect, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { v4 as uuidv4 } from 'uuid';
@@ -12,14 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { UploadIcon } from 'src/assets/icons';
 import ChatAction from 'src/components/ui/features/chat/ChatAction';
 import ChatAvatarStatus from 'src/components/ui/features/chat/ChatAvatarStatus';
-import MessageReactionPopover from 'src/components/ui/features/chat/MessageReactionPopover';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from 'src/components/ui/shadcn-ui/tooltip';
-import EmotionReact from 'src/components/ui/shared/EmotionReact';
+import ConsecutiveMessages from 'src/components/ui/features/chat/ConsecutiveMessages';
 import FullScreenMediaSlider, {
   IMediaItem
 } from 'src/components/ui/shared/FullScreenMediaSlider';
@@ -31,17 +20,13 @@ import {
 } from 'src/constants/variables';
 import useGetConversationDetails from 'src/hooks/cache/useGetConversationDetails';
 import { useGetConversationMessages } from 'src/hooks/cache/useGetConversationMessages';
-import { useSessionUserStore } from 'src/store/useSessionUserStore';
 import { useSocketStore } from 'src/store/useSocketStore';
 import { TUploadFile } from 'src/types/common.type';
-import {
-  cn,
-  downloadFileFromUrl,
-  formatMessageTimeLine,
-  getVideoPoster
-} from 'src/utils/common.util';
+import { getVideoPoster } from 'src/utils/common.util';
+import { formatToConsecutive } from 'src/utils/message.util';
 import { showErrorToast } from 'src/utils/toast.util';
 import { validateUploadFiles } from 'src/utils/validations/file-validation';
+import UnsendMessageDialog from 'src/components/ui/features/chat/UnsendMessageDialog';
 
 interface IConversationMessagesProps {
   conversationId: string;
@@ -54,13 +39,8 @@ const ConversationMessages: FC<IConversationMessagesProps> = ({
   const [viewMediaList, setViewMediaList] = useState<IMediaItem[]>([]);
   const [openMediaSlider, setOpenMediaSlider] = useState(false);
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
-  const [activeReactionMessage, setActiveReactionMessage] = useState<
-    string | null
-  >(null);
 
   const chatSocket = useSocketStore((state) => state.getSocket('/chat'));
-  const queryClient = useQueryClient();
-  const { user: currentUser } = useSessionUserStore();
   const {
     data: conversationDetails,
     isLoading: isGettingConversationDetails,
@@ -113,26 +93,6 @@ const ConversationMessages: FC<IConversationMessagesProps> = ({
     }
   };
 
-  const handleReactionPopoverOpenChange = (
-    open: boolean,
-    messageId: string
-  ) => {
-    if (!open) {
-      setActiveReactionMessage(null);
-    } else {
-      setActiveReactionMessage(messageId);
-    }
-  };
-
-  const handleDropEmotionSuccess = async () => {
-    setActiveReactionMessage(null);
-
-    // Invalidate query to refresh messages
-    await queryClient.invalidateQueries({
-      queryKey: ['conversation-messages', { conversationId }]
-    });
-  };
-
   const handleMarkMessageSeen = () => {
     chatSocket.emit('user_mark_seen_message', { conversationId });
   };
@@ -142,6 +102,12 @@ const ConversationMessages: FC<IConversationMessagesProps> = ({
       await handleChangeMessageFiles(files);
     }
   });
+
+  const consecutiveMessages = conversationMessages
+    ? formatToConsecutive(
+        conversationMessages.pages.flatMap((page) => page.data)
+      )
+    : [];
 
   useEffect(() => {
     handleMarkMessageSeen();
@@ -163,7 +129,7 @@ const ConversationMessages: FC<IConversationMessagesProps> = ({
           </div>
         )}
       {conversationDetails && (
-        <div className="flex items-center border-b border-muted p-2 pl-4">
+        <div className="flex items-center border-b border-muted p-2 pl-4 shadow-sm">
           <div className="flex items-center">
             <ChatAvatarStatus
               className="mr-3"
@@ -183,7 +149,7 @@ const ConversationMessages: FC<IConversationMessagesProps> = ({
       {conversationMessages && (
         <div
           {...getRootProps({
-            className: 'relative z-[5] flex flex-1 flex-col overflow-auto'
+            className: 'relative z-[5] flex flex-1 flex-col overflow-hidden'
           })}
         >
           {isDragActive && (
@@ -200,229 +166,11 @@ const ConversationMessages: FC<IConversationMessagesProps> = ({
           <InfiniteScroller
             fetchNextPage={fetchNextPageMessages}
             hasNextPage={hasMoreMessages}
-            className="flex flex-1 flex-col-reverse gap-2 overflow-auto p-4 pb-2"
+            className="flex flex-1 flex-col-reverse gap-2 overflow-auto pb-2 pl-4 pr-2 pt-4"
           >
-            {conversationMessages.pages.map((page) =>
-              page.data.map((message, i) => {
-                const isMessageSentByMe =
-                  message.sender.profile.id === currentUser.id;
-                const isPreviousMessageSentBySameUser =
-                  page.data[i - 1]?.sender.id === message.sender.id;
-                const isPreviousMessageShowSeperateTime =
-                  page.data[i - 1]?.isShowSeperateTime;
-                const photoAndVideoMediaList = message.mediaList.filter(
-                  (media) => media.type !== 'AUDIO' && media.type !== 'FILE'
-                );
-                const fileMediaList = message.mediaList.filter(
-                  (media) => media.type === 'FILE'
-                );
-                const audioMediaList = message.mediaList.filter(
-                  (media) => media.type === 'AUDIO'
-                );
-
-                return (
-                  <div key={message.id} className="flex flex-col">
-                    {message.isShowSeperateTime && (
-                      <div className="justify-center">
-                        <div className="mx-auto my-2 size-fit">
-                          <p className="text-center text-xs text-muted-foreground">
-                            {formatMessageTimeLine(message.createdAt)}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                    <div
-                      className={cn(
-                        'flex relative group',
-                        isMessageSentByMe ? 'justify-end' : 'justify-start'
-                      )}
-                    >
-                      <div className="flex max-w-[80%]">
-                        {!isMessageSentByMe && (
-                          <div className="flex w-10 shrink-0 items-end">
-                            {(!isPreviousMessageSentBySameUser ||
-                              message.isShowSeperateTime ||
-                              isPreviousMessageShowSeperateTime) && (
-                              <ChatAvatarStatus
-                                src={message.sender.profile.avatar}
-                                size={40}
-                                className="mr-2 justify-end"
-                              />
-                            )}
-                          </div>
-                        )}
-                        <div className="flex flex-col">
-                          <div className="flex gap-2">
-                            <div className="flex flex-col">
-                              {message.content && (
-                                <div
-                                  className={cn(
-                                    'w-fit rounded-3xl px-3 py-2',
-                                    isMessageSentByMe
-                                      ? 'bg-blue-500 dark:bg-blue-600 text-white ml-auto'
-                                      : 'bg-muted'
-                                  )}
-                                >
-                                  <p className="text-[15px]">
-                                    {message.content}
-                                  </p>
-                                </div>
-                              )}
-
-                              {photoAndVideoMediaList.length > 0 && (
-                                <div
-                                  className={cn(
-                                    'mt-1 grid grid-cols-1 gap-1',
-                                    photoAndVideoMediaList.length >= 3 &&
-                                      'grid-cols-3',
-                                    photoAndVideoMediaList.length === 2 &&
-                                      'grid-cols-2'
-                                  )}
-                                >
-                                  {photoAndVideoMediaList.map((media, i) => (
-                                    <div
-                                      className="relative shrink-0 hover:cursor-pointer"
-                                      key={media.id}
-                                      onClick={() => {
-                                        setViewMediaList(
-                                          photoAndVideoMediaList
-                                        );
-                                        setActiveMediaIndex(i);
-                                        setOpenMediaSlider(true);
-                                      }}
-                                    >
-                                      <Image
-                                        width={128}
-                                        height={128}
-                                        src={media.url.replaceAll(
-                                          '.mp4',
-                                          '.jpg'
-                                        )}
-                                        alt="media"
-                                        className="aspect-square rounded-lg object-cover"
-                                      />
-                                      {media.type === 'VIDEO' && (
-                                        <div className="absolute inset-0 m-auto size-fit rounded-full bg-black bg-opacity-50 p-3">
-                                          <Play
-                                            className="text-white"
-                                            size={20}
-                                            fill="white"
-                                          />
-                                        </div>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                              {fileMediaList.length > 0 && (
-                                <div
-                                  className={cn(
-                                    'mt-1 flex flex-col gap-1',
-                                    isMessageSentByMe
-                                      ? 'items-end'
-                                      : 'items-start'
-                                  )}
-                                >
-                                  {fileMediaList.map((media) => (
-                                    <button
-                                      key={media.id}
-                                      className="flex items-center justify-center gap-2 rounded-lg bg-muted p-3"
-                                      onClick={() =>
-                                        downloadFileFromUrl(
-                                          media.url,
-                                          media.fileName || ''
-                                        )
-                                      }
-                                    >
-                                      <FileText size={20} />
-                                      <span className="text-xs">
-                                        {media.fileName}
-                                      </span>
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-
-                            {!isMessageSentByMe && (
-                              <MessageReactionPopover
-                                open={activeReactionMessage === message.id}
-                                onOpenChange={(isOpen) =>
-                                  handleReactionPopoverOpenChange(
-                                    isOpen,
-                                    message.id
-                                  )
-                                }
-                                onDropEmotionSuccess={handleDropEmotionSuccess}
-                                messageId={message.id}
-                                conversationId={conversationId}
-                                className={`${activeReactionMessage !== message.id ? 'opacity-0 group-hover:opacity-100' : ''}`}
-                              />
-                            )}
-                          </div>
-                          {/* Display message reactions */}
-                          {message.emotions && message.emotions.length > 0 && (
-                            <div
-                              className={cn(
-                                'flex items-center gap-1 mt-1',
-                                isMessageSentByMe
-                                  ? 'justify-end'
-                                  : 'justify-start'
-                              )}
-                            >
-                              {message.emotions.map((emotion) => (
-                                <TooltipProvider key={emotion.id}>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div className="flex items-center">
-                                        <EmotionReact
-                                          type={emotion.type}
-                                          size={25}
-                                        />
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>
-                                        {emotion.participant.profile.fullName}
-                                      </p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              ))}
-                            </div>
-                          )}
-                          {isMessageSentByMe && message.seenBy.length > 0 && (
-                            <div className="ml-auto mt-2 flex gap-2">
-                              {message.seenBy.map((seenParticipant) => (
-                                <TooltipProvider key={seenParticipant.id}>
-                                  <Tooltip>
-                                    <TooltipTrigger>
-                                      <ChatAvatarStatus
-                                        key={seenParticipant.id}
-                                        src={seenParticipant.profile.avatar}
-                                        size={15}
-                                      />
-                                    </TooltipTrigger>
-                                    <TooltipContent className="z-10">
-                                      <p>
-                                        Seen at{' '}
-                                        {formatMessageTimeLine(
-                                          seenParticipant.seenAt
-                                        )}
-                                      </p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
+            {consecutiveMessages.toReversed().map((messages, idx) => (
+              <ConsecutiveMessages key={idx} messages={messages} />
+            ))}
           </InfiniteScroller>
 
           <ChatAction

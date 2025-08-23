@@ -25,6 +25,7 @@ import {
   getMediaType
 } from 'src/common/utils/common.util';
 import { formatMessageReactions } from 'src/common/utils/message.util';
+import { CreatedPrivateChatResponseDTO } from 'src/modules/apis/chat/dto/create-private-chat/CreatedPrivateChatResponse.dto';
 import { GetChatMemberResponseDTO } from 'src/modules/apis/chat/dto/get-chat-members/GetChatMemberResponse.dto';
 import { GetChatMembersQueryDTO } from 'src/modules/apis/chat/dto/get-chat-members/GetChatMembersQuery.dto';
 import { GetConversationDetailsResponseDTO } from 'src/modules/apis/chat/dto/get-conversation-details/GetConversationDetailsResponse.dto';
@@ -96,7 +97,7 @@ export class ChatService {
   async createPrivateChat(
     userId: string,
     receiverId: string
-  ): Promise<MessageResponseDTO> {
+  ): Promise<CreatedPrivateChatResponseDTO> {
     if (userId === receiverId) {
       throw new BadRequestException('You cannot create chat with yourself');
     }
@@ -117,7 +118,8 @@ export class ChatService {
 
     if (existingConversation) {
       return {
-        message: 'Private chat created successfully'
+        message: 'Private chat created successfully',
+        createdConversationId: existingConversation.id
       };
     }
 
@@ -129,7 +131,7 @@ export class ChatService {
         throw new NotFoundException('Received user not found');
       });
 
-    const _createdConversation = await this.prismaService.conversation.create({
+    const createdConversation = await this.prismaService.conversation.create({
       data: {
         conversationParticipants: {
           createMany: {
@@ -139,7 +141,8 @@ export class ChatService {
       }
     });
     return {
-      message: 'Private chat created successfully'
+      message: 'Private chat created successfully',
+      createdConversationId: createdConversation.id
     };
   }
 
@@ -956,8 +959,6 @@ export class ChatService {
       }
     });
 
-    let result: MessageResponseDTO;
-
     if (existingEmotion) {
       // Update existing emotion if emojiCode is different
       if (existingEmotion.emojiCode !== emojiCode) {
@@ -970,37 +971,61 @@ export class ChatService {
           }
         });
 
-        result = {
+        return {
           message: 'Message emotion updated successfully'
         };
-      } else {
-        // Remove emotion if the same type is selected
-        await this.prismaService.messageEmotion.delete({
-          where: {
-            id: existingEmotion.id
-          }
-        });
-
-        result = {
-          message: 'Message emotion removed successfully'
-        };
       }
-    } else {
-      // Create a new emotion
-      const _newEmotion = await this.prismaService.messageEmotion.create({
-        data: {
-          emojiCode,
-          messageId,
-          participantId: userParticipantId
-        }
-      });
-
-      result = {
-        message: 'Dropped message emotion successfully'
+      return {
+        message: 'Message emotion not changed'
       };
     }
+    // Create a new emotion
+    const _newEmotion = await this.prismaService.messageEmotion.create({
+      data: {
+        emojiCode,
+        messageId,
+        participantId: userParticipantId
+      }
+    });
 
-    return result;
+    return {
+      message: 'Dropped message emotion successfully'
+    };
+  }
+
+  async removeMessageEmotion(
+    conversationId: string,
+    messageId: string,
+    userId: string
+  ): Promise<MessageResponseDTO> {
+    const userParticipantId =
+      await this.redisService.getConversationParticipantId(
+        conversationId,
+        userId
+      );
+
+    const _messageEmotion = await this.prismaService.messageEmotion
+      .findUniqueOrThrow({
+        where: {
+          messageId_participantId: {
+            messageId,
+            participantId: userParticipantId
+          }
+        }
+      })
+      .catch(() => {
+        throw new NotFoundException('Message emotion not found');
+      });
+
+    await this.prismaService.messageEmotion.delete({
+      where: {
+        id: _messageEmotion.id
+      }
+    });
+
+    return {
+      message: 'Remove message emotion successfully'
+    };
   }
 
   revokeMessage = async (
@@ -1052,6 +1077,7 @@ export class ChatService {
       },
       data: {
         content: null,
+        isRevokedForEveryone: true,
         messageMedias: {
           deleteMany: {
             messageId

@@ -58,15 +58,22 @@ export const formatMessageReactions = (
   // Get top 3 reactions
   const topReactions = reactionCounts.slice(0, 3).map((r) => r.emojiCode);
 
-  // Create sorted reactions object
-  const sortedReactions: { [key: string]: MessageEmotionResponseDTO[] } = {};
-  reactionCounts.forEach(({ emojiCode }) => {
-    // We can safely use non-null assertion since we know these keys exist from reactionCounts
-    sortedReactions[emojiCode] = formattedReactions[emojiCode]!;
-  });
-
   return {
     total: reactions.length,
-    topReactions
+    topReactions,
+    data: reactions.map((reaction) => ({
+      id: reaction.id,
+      emojiCode: reaction.emojiCode,
+      participant: {
+        id: reaction.participant.id,
+        profile: {
+          id: reaction.participant.user.id,
+          fullName: reaction.participant.user.fullName,
+          avatar: reaction.participant.user.avatar
+        },
+        role: reaction.participant.role
+      },
+      createdAt: reaction.createdAt
+    }))
   };
 };

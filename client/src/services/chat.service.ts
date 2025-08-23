@@ -64,10 +64,9 @@ export const sendMessage = async (
 };
 
 export const createPrivateConversation = async (receiverId: string) => {
-  const { data } = await axiosInstance.post<TSuccessMessageResponse>(
-    '/api/v1/chat/private/create',
-    { receiverId }
-  );
+  const { data } = await axiosInstance.post<
+    TSuccessMessageResponse & { createdConversationId: string }
+  >('/api/v1/chat/private/create', { receiverId });
   return data;
 };
 
@@ -78,6 +77,15 @@ export const dropMessageEmotion = async (
   const { data } = await axiosInstance.post<TSuccessMessageResponse>(
     `/api/v1/chat/${params.conversationId}/messages/${params.messageId}/drop-emotion`,
     body
+  );
+  return data;
+};
+
+export const removeMessageEmotion = async (
+  params: TDropMessageEmotionParams
+) => {
+  const { data } = await axiosInstance.delete<TSuccessMessageResponse>(
+    `/api/v1/chat/${params.conversationId}/messages/${params.messageId}/remove-emotion`
   );
   return data;
 };

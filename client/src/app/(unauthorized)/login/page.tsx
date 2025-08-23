@@ -62,12 +62,12 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="flex h-screen items-center justify-center">
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleLoginWithEmailPassword)}>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleLoginWithEmailPassword)}>
+        <div className="flex h-screen items-center justify-center">
           <Card className="w-full max-w-md bg-zinc-50 dark:bg-zinc-900">
             <CardHeader>
-              <CardTitle className="text-2xl">Login</CardTitle>
+              <CardTitle>Login</CardTitle>
               <CardDescription>
                 Enter your email and password to access your account.
               </CardDescription>
@@ -106,7 +106,6 @@ const LoginPage = () => {
                   />
                 )}
               />
-              <div className="m-0 text-right"></div>
             </CardContent>
             <CardFooter className="block">
               <Button type="submit" className="w-full" isLoading={isLogin}>
@@ -135,9 +134,9 @@ const LoginPage = () => {
               </div>
             </CardFooter>
           </Card>
-        </form>
-      </Form>
-    </div>
+        </div>
+      </form>
+    </Form>
   );
 };
 

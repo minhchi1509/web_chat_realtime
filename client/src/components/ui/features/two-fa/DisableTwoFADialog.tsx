@@ -35,9 +35,7 @@ const DisableTwoFADialog: FC<IDisableTwoFADialogProps> = ({
     },
     resolver: zodResolver(
       z.object({
-        password: z
-          .string({ coerce: true })
-          .min(1, 'Please enter your password.')
+        password: z.string().min(1, 'Please enter your password.')
       })
     )
   });

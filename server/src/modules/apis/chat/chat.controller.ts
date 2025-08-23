@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -23,6 +24,7 @@ import { PaginationResponseDTO } from 'src/common/dto/PaginationResponse.dto';
 import { ConversationPolicyGuard } from 'src/common/guards/conversation-policy.guard';
 import { plainToInstancePaginationResponse } from 'src/common/utils/common.util';
 import { ChatService } from 'src/modules/apis/chat/chat.service';
+import { CreatedPrivateChatResponseDTO } from 'src/modules/apis/chat/dto/create-private-chat/CreatedPrivateChatResponse.dto';
 import { CreatePrivateChatBodyDTO } from 'src/modules/apis/chat/dto/create-private-chat/CreatePrivateChatBody.dto';
 import { DropMessageEmotionBodyDTO } from 'src/modules/apis/chat/dto/drop-message-emotion/DropMessageEmotionBody.dto';
 import { GetChatMemberResponseDTO } from 'src/modules/apis/chat/dto/get-chat-members/GetChatMemberResponse.dto';
@@ -60,12 +62,12 @@ export class ChatController {
   async createPrivateChat(
     @Body() body: CreatePrivateChatBodyDTO,
     @UserId() userId: string
-  ): Promise<MessageResponseDTO> {
+  ): Promise<CreatedPrivateChatResponseDTO> {
     const createdConversation = await this.chatService.createPrivateChat(
       userId,
       body.receiverId
     );
-    return plainToInstance(MessageResponseDTO, createdConversation);
+    return plainToInstance(CreatedPrivateChatResponseDTO, createdConversation);
   }
 
   @Get('conversations')
@@ -160,6 +162,26 @@ export class ChatController {
     return plainToInstance(MessageResponseDTO, droppedEmotion);
   }
 
+  @Delete('/:conversationId/messages/:messageId/remove-emotion')
+  @UseGuards(ConversationPolicyGuard)
+  async removeMessageEmotion(
+    @Param('conversationId') conversationId: string,
+    @Param('messageId') messageId: string,
+    @UserId() userId: string
+  ): Promise<MessageResponseDTO> {
+    const removedEmotion = await this.chatService.removeMessageEmotion(
+      conversationId,
+      messageId,
+      userId
+    );
+    await this.chatSocketService.sendNotificationToConversationMembers(
+      conversationId,
+      SOCKET_EVENTS_NAME_TO_CLIENT.CHAT.CONVERSATION_DETAIL_UPDATED,
+      { conversationId }
+    );
+    return plainToInstance(MessageResponseDTO, removedEmotion);
+  }
+
   @Post('/:conversationId/messages/:messageId/revoke')
   @UseGuards(ConversationPolicyGuard)
   async revokeMessage(
@@ -191,6 +213,11 @@ export class ChatController {
       conversationId,
       messageId,
       userId
+    );
+	await this.chatSocketService.sendNotificationToConversationMembers(
+      conversationId,
+      SOCKET_EVENTS_NAME_TO_CLIENT.CHAT.CONVERSATION_DETAIL_UPDATED,
+      { conversationId }
     );
     return plainToInstance(MessageResponseDTO, deletedMessage);
   }

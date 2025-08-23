@@ -1,7 +1,7 @@
 import { TErrorResponse } from 'src/types/error-response.type';
 
-export interface IBasePageProps {
-  params: Record<string, string | undefined>;
+export interface IBasePageProps<P, S = {}> {
+  params: Promise<P>;
   searchParams?: Record<string, string | undefined>;
 }
 

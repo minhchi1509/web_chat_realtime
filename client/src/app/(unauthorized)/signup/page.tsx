@@ -117,7 +117,7 @@ const SignupPage = () => {
               <CardFooter className="flex flex-col space-y-4">
                 <Button
                   type="submit"
-                  className="w-full"
+                  className="w-full mt-4"
                   isLoading={signupMutation.isPending}
                 >
                   Sign Up

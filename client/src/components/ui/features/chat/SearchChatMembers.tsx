@@ -45,7 +45,7 @@ const SearchChatMembers = () => {
     mutationFn: (partnerId: string) =>
       chatService.createPrivateConversation(partnerId),
     onSuccess: (responseData) => {
-      push(`/messages/${responseData.createdConversation.id}`);
+      push(`/messages/${responseData.createdConversationId}`);
     },
     onError: (error: TErrorResponse) => {
       showErrorToast(error.message);

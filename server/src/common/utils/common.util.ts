@@ -55,9 +55,9 @@ export const throwErrorByContextType = (
 export const getEmojiDisplayUrl = async (emojiCode: string) => {
   try {
     const _res = await axios.get(
-      `https://twemoji.maxcdn.com/v/latest/svg/${emojiCode}.svg`
+      `https://cdn.jsdelivr.net/npm/emoji-datasource-apple/img/apple/64/${emojiCode}.png`
     );
-    return `https://twemoji.maxcdn.com/v/latest/svg/${emojiCode}.svg`;
+    return `https://cdn.jsdelivr.net/npm/emoji-datasource-apple/img/apple/64/${emojiCode}.png`;
   } catch (_error) {
     return null;
   }
@@ -107,7 +107,6 @@ export const scrapeLinkMetadata = async (
 
     // Extract metadata
     const metadata = await scraper({ html, url: finalUrl });
-    console.log('Metadata:', metadata);
 
     linkMetadata = {
       url: metadata.url || url,

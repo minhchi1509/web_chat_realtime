@@ -3,6 +3,7 @@ import {
   EMessageType,
   ESystemAction,
   TConversationParticipantResponse,
+  TMessageEmotionResponse,
   TMessageMediaResponse
 } from 'src/types/api/model.type';
 import { TGetListResponse } from 'src/types/common.type';
@@ -20,6 +21,7 @@ export type TParentMessageResponse = {
 export type TMessageReactionsData = {
   total: number;
   topReactions: string[];
+  data: TMessageEmotionResponse[];
 };
 
 export type TLinkMetadata = {

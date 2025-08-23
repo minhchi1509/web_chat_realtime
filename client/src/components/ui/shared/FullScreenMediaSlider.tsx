@@ -30,7 +30,7 @@ const FullScreenMediaSlider: React.FC<FullScreenMediaSliderProps> = ({
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [isEnd, setIsEnd] = useState(false);
   const [isBeginning, setIsBeginning] = useState(true);
-  const swiperRef = useRef<SwiperCore>();
+  const swiperRef = useRef<SwiperCore>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

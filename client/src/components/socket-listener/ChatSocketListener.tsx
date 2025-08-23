@@ -16,21 +16,17 @@ const ChatSocketListener = ({ children }: PropsWithChildren) => {
     | undefined;
 
   useEffect(() => {
-    chatSocket.on('new_conversation_message', async (payload) => {
-      console.log({ payload, conversationIdParam });
+    chatSocket.on('conversation_detail_updated', async (payload) => {
       if (payload.conversationId === conversationIdParam) {
-        chatSocket.emit('user_mark_seen_message', {
-          conversationId: payload.conversationId
-        });
-      }
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['conversations'] }),
-        queryClient.invalidateQueries({
+        await queryClient.invalidateQueries({
           queryKey: [
             'conversation-messages',
             { conversationId: payload.conversationId }
           ]
-        }),
+        });
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['conversations'] }),
         queryClient.invalidateQueries({
           queryKey: [
             'conversationDetails',
@@ -50,36 +46,9 @@ const ChatSocketListener = ({ children }: PropsWithChildren) => {
       ]);
     });
 
-    chatSocket.on('new_seen_message', async (payload) => {
-      if (payload.conversationId === conversationIdParam) {
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ['conversations'] }),
-          queryClient.invalidateQueries({
-            queryKey: [
-              'conversation-messages',
-              { conversationId: payload.conversationId }
-            ]
-          })
-        ]);
-      }
-    });
-
-    chatSocket.on('new_message_emotion', async (payload) => {
-      if (payload.conversationId === conversationIdParam) {
-        await queryClient.invalidateQueries({
-          queryKey: [
-            'conversation-messages',
-            { conversationId: payload.conversationId }
-          ]
-        });
-      }
-    });
-
     return () => {
-      chatSocket.off('new_conversation_message');
+      chatSocket.off('conversation_detail_updated');
       chatSocket.off('user_activity_status');
-      chatSocket.off('new_seen_message');
-      chatSocket.off('new_message_emotion');
     };
   }, [chatSocket]);
 
