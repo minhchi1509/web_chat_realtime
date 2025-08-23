@@ -6,8 +6,8 @@ import Image from 'next/image';
 import React, { FC } from 'react';
 
 import { Button } from 'src/components/ui/shadcn-ui/button';
-import { Input } from 'src/components/ui/shadcn-ui/input';
 import { ScrollArea, ScrollBar } from 'src/components/ui/shadcn-ui/scroll-area';
+import { Textarea } from 'src/components/ui/shadcn-ui/textarea';
 import UploadFileButton from 'src/components/ui/shared/UploadFileButton';
 import {
   MAX_MESSAGE_FILE_PER_UPLOAD,
@@ -37,13 +37,13 @@ const ChatAction: FC<IChatActionProps> = ({
   conversationId
 }) => {
   const [message, setMessage] = React.useState<string>('');
-  const inputMessageRef = React.useRef<HTMLInputElement>(null);
+  const textAreaMessageRef = React.useRef<HTMLTextAreaElement>(null);
 
   const handleChangeFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
     onChangeFiles(Array.from(files));
-    inputMessageRef.current?.focus();
+    textAreaMessageRef.current?.focus();
   };
 
   const { isPending: isSendingMessage, mutate: sendConversationMessage } =
@@ -66,81 +66,91 @@ const ChatAction: FC<IChatActionProps> = ({
     });
 
   return (
-    <div
-      className={cn(
-        'flex flex-col p-2 border-t border-muted',
-        !showElement && 'hidden'
-      )}
-    >
-      {messageFiles.length > 0 && (
-        <ScrollArea className="max-w-4xl pb-2">
-          <div className="flex gap-4">
-            {messageFiles.map((file, index) => {
-              const isVideoFile =
-                file.originalFileObject.type.includes('video/');
-              const isImageFile =
-                file.originalFileObject.type.includes('image/');
-              return (
-                <div key={index} className="relative shrink-0 mt-2">
-                  {(isVideoFile || isImageFile) && (
-                    <Image
-                      src={file.previewUrl}
-                      alt="preview-file"
-                      width={48}
-                      height={48}
-                      className="aspect-square rounded-lg object-cover"
-                    />
-                  )}
-                  {isVideoFile && (
-                    <div className="absolute inset-0 m-auto size-fit rounded-full bg-black bg-opacity-50 p-1">
-                      <Play className="text-white" size={12} fill="white" />
-                    </div>
-                  )}
-                  {!isVideoFile && !isImageFile && (
-                    <div className="flex items-center justify-center gap-2 rounded-lg bg-muted p-3">
-                      <FileText size={20} />
-                      <span className="text-xs">
-                        {file.originalFileObject.name}
-                      </span>
-                    </div>
-                  )}
-                  <div
-                    className="absolute -right-2 -top-2 size-fit rounded-full bg-muted p-1 duration-200 hover:cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600"
-                    onClick={() => onRemoveFile(file.id)}
-                  >
-                    <XIcon size={12} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
-      )}
-      <div className="flex">
+    <div className="flex flex-col">
+      <div
+        className={cn(
+          'flex p-2 border-t border-muted overflow-hidden',
+          !showElement && 'hidden'
+        )}
+      >
         <UploadFileButton
-          className="mr-2"
+          className="mr-2 shrink-0 self-end"
           onFileChange={handleChangeFile}
           variant="ghost"
           maxFileSize={MAX_MESSAGE_FILE_SIZE}
           maxFiles={MAX_MESSAGE_FILE_PER_UPLOAD}
           uploadedFilesLength={messageFiles.length}
         />
-        <Input
-          className="flex-1 focus-visible:ring-transparent"
-          placeholder="Type your message here"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          ref={inputMessageRef}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              sendConversationMessage();
-            }
-          }}
-        />
+        <div className="flex-1 overflow-hidden bg-[#F0F2F5] dark:bg-zinc-800 rounded-xl px-3 py-2">
+          <div className="flex flex-col">
+            {messageFiles.length > 0 && (
+              <ScrollArea className="pb-2">
+                <div className="flex gap-4">
+                  {messageFiles.map((file, index) => {
+                    const isVideoFile =
+                      file.originalFileObject.type.includes('video/');
+                    const isImageFile =
+                      file.originalFileObject.type.includes('image/');
+                    return (
+                      <div key={index} className="relative shrink-0 mt-2">
+                        {(isVideoFile || isImageFile) && (
+                          <Image
+                            src={file.previewUrl}
+                            alt="preview-file"
+                            width={48}
+                            height={48}
+                            className="aspect-square rounded-lg object-cover"
+                          />
+                        )}
+                        {isVideoFile && (
+                          <div className="absolute inset-0 m-auto size-fit rounded-full bg-black bg-opacity-50 p-1">
+                            <Play
+                              className="text-white"
+                              size={12}
+                              fill="white"
+                            />
+                          </div>
+                        )}
+                        {!isVideoFile && !isImageFile && (
+                          <div className="flex items-center justify-center gap-2 rounded-lg bg-[#C9CCD1] dark:bg-black p-3">
+                            <FileText size={20} />
+                            <span className="text-xs">
+                              {file.originalFileObject.name}
+                            </span>
+                          </div>
+                        )}
+                        <div
+                          className="absolute -right-2 -top-2 size-fit rounded-full bg-white dark:bg-zinc-700 p-1 duration-200 hover:cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600"
+                          onClick={() => onRemoveFile(file.id)}
+                        >
+                          <XIcon size={12} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+            )}
+          </div>
+          <div className="flex">
+            <Textarea
+              ref={textAreaMessageRef}
+              className="flex-1 focus-visible:ring-transparent max-h-[200px] resize-none min-h-[20px] border-none shadow-none bg-transparent dark:bg-transparent p-0 rounded-none"
+              placeholder="Type your message here"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              // onKeyDown={(e) => {
+              //   if (e.key === 'Enter') {
+              //     e.preventDefault();
+              //     sendConversationMessage();
+              //   }
+              // }}
+            />
+          </div>
+        </div>
         <Button
-          className="ml-2"
+          className="ml-2 self-end"
           variant="ghost"
           size="icon"
           disabled={!message && !messageFiles.length}

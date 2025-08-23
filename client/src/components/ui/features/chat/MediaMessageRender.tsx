@@ -2,10 +2,11 @@
 import { FileText, Play } from 'lucide-react';
 import Image from 'next/image';
 import React from 'react';
+import { useConversationStore } from 'src/store/useConversationStore';
 
 import { TConversationMessageResponse } from 'src/types/api/chat/get-conversation-messages.type';
 import { EMessageMediaType } from 'src/types/api/model.type';
-import { cn } from 'src/utils/common.util';
+import { cn, downloadFileFromUrl } from 'src/utils/common.util';
 
 interface IMediaMessageRenderProps {
   isMessageSendByMe: boolean;
@@ -16,10 +17,18 @@ const MediaMessageRender: React.FC<IMediaMessageRenderProps> = ({
   message,
   isMessageSendByMe
 }) => {
+  const { openMessageMediaViewSlider } = useConversationStore();
   const senderDisplayName = isMessageSendByMe
     ? 'You'
     : message.sender?.profile.fullName;
   const mediaType = message.mediaList?.[0]?.type;
+
+  const handleOpenMediaSlider = (idx: number) => {
+    openMessageMediaViewSlider(
+      message.mediaList.map((m) => ({ ...m })),
+      idx
+    );
+  };
 
   if (mediaType === EMessageMediaType.PHOTO) {
     return (
@@ -44,6 +53,7 @@ const MediaMessageRender: React.FC<IMediaMessageRenderProps> = ({
                 src={mediaItem.url}
                 alt={'Message media'}
                 className="aspect-square max-h-[296px] min-w-[125px] flex-1 cursor-pointer rounded-[18px] object-cover hover:opacity-80"
+                onClick={() => handleOpenMediaSlider(idx)}
               />
             ))}
           </div>
@@ -54,7 +64,10 @@ const MediaMessageRender: React.FC<IMediaMessageRenderProps> = ({
 
   if (mediaType === EMessageMediaType.VIDEO) {
     return (
-      <div className="relative size-fit cursor-pointer">
+      <div
+        className="relative size-fit cursor-pointer"
+        onClick={() => handleOpenMediaSlider(0)}
+      >
         <Image
           width={125}
           height={125}
@@ -70,7 +83,15 @@ const MediaMessageRender: React.FC<IMediaMessageRenderProps> = ({
   }
 
   return (
-    <div className="w-fit max-w-[564px] cursor-pointer overflow-hidden rounded-[inherit]">
+    <div
+      className="w-fit max-w-[564px] cursor-pointer overflow-hidden rounded-[inherit]"
+      onClick={() =>
+        downloadFileFromUrl(
+          message.mediaList[0].url,
+          message.mediaList[0].fileName || 'file'
+        )
+      }
+    >
       <div className="flex min-h-[54px] items-center gap-2 overflow-hidden bg-[#F0F0F0] px-3 py-2 dark:bg-[#303030]">
         <div className="flex size-8 items-center justify-center rounded-full bg-[#E4E4E4] dark:bg-[#2E2E2E]">
           <FileText

@@ -10,6 +10,9 @@ class LastMessageResponseDTO {
   isSeen: boolean;
 
   @Expose()
+  isSendByMe: boolean;
+
+  @Expose()
   createdAt: Date;
 
   @Expose()

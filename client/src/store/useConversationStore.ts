@@ -1,23 +1,6 @@
 import { create } from 'zustand';
 
-import { TUserResponse } from 'src/types/api/model.type';
-
-type TCurrentMessageActions = {
-  messageId: string;
-  openReactPopover: boolean;
-  openReactEmojiPicker: boolean;
-  openMoreActionsPopover: boolean;
-  openUnsendModal: boolean;
-};
-
-type TConversationStore = {
-  currentMessageActions: TCurrentMessageActions;
-  openMessageActionsPopover: (
-    messageId: string,
-    actions: Partial<Omit<TCurrentMessageActions, 'messageId'>>
-  ) => void;
-  closeMessageActionsPopover: () => void;
-};
+import { TConversationStore } from 'src/types/store/conversation-store.type';
 
 export const useConversationStore = create<TConversationStore>((set, get) => ({
   currentMessageActions: {
@@ -27,9 +10,14 @@ export const useConversationStore = create<TConversationStore>((set, get) => ({
     openMoreActionsPopover: false,
     openUnsendModal: false
   },
+  messageMediaViewSlider: {
+    isOpen: false,
+    initialIndex: 0,
+    mediaList: []
+  },
 
   openMessageActionsPopover: (messageId, actions) => {
-    set((state) => ({
+    set(() => ({
       currentMessageActions: {
         openReactPopover: false,
         openReactEmojiPicker: false,
@@ -52,5 +40,24 @@ export const useConversationStore = create<TConversationStore>((set, get) => ({
         messageId: ''
       }
     }));
-  }
+  },
+
+  openMessageMediaViewSlider: (mediaList, initialIndex = 0) => {
+    set(() => ({
+      messageMediaViewSlider: {
+        isOpen: true,
+        initialIndex,
+        mediaList
+      }
+    }));
+  },
+
+  closeMessageMediaViewSlider: () =>
+    set(() => ({
+      messageMediaViewSlider: {
+        isOpen: false,
+        initialIndex: 0,
+        mediaList: []
+      }
+    }))
 }));

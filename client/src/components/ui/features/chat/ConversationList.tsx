@@ -54,32 +54,46 @@ const ConversationList = () => {
                 >
                   <div className="relative mr-3.5 shrink-0">
                     <ChatAvatarStatus
-                      size={50}
+                      size={56}
                       src={conversation.thumbnail}
                       isOnline={conversation.isOnline}
                     />
                   </div>
                   <div className="flex flex-1 flex-col gap-1 overflow-hidden">
                     <div className="flex items-center gap-2">
-                      <p className="text-base font-medium">
+                      <p className="text-base font-semibold">
                         {conversation.name}
                       </p>
-                      {!conversation.lastMessage.isSeen && (
-                        <div className="size-2 rounded-full bg-blue-500"></div>
-                      )}
                     </div>
-                    <p
-                      className={cn(
-                        'line-clamp-1 text-xs text-muted-foreground truncate',
-                        !conversation.lastMessage.isSeen && 'font-bold'
-                      )}
-                    >
-                      {conversation.lastMessage.previewContent}
-                    </p>
+                    <div className="flex">
+                      <p
+                        className={cn(
+                          'line-clamp-1 text-[13px] text-muted-foreground truncate',
+                          !conversation.lastMessage.isSendByMe &&
+                            !conversation.lastMessage.isSeen &&
+                            'font-bold text-black dark:text-white'
+                        )}
+                      >
+                        {conversation.lastMessage.previewContent}
+                      </p>
+                      <p className="ml-1 text-[13px] text-muted-foreground shrink-0">
+                        • {formatTimeAgo(conversation.lastMessage.createdAt)}
+                      </p>
+                    </div>
                   </div>
-                  <p className="ml-2 text-xs text-muted-foreground">
-                    {formatTimeAgo(conversation.lastMessage.createdAt)}
-                  </p>
+                  <div className="shrink-0">
+                    {!conversation.lastMessage.isSendByMe &&
+                      !conversation.lastMessage.isSeen && (
+                        <div className="size-3 rounded-full bg-blue-500"></div>
+                      )}
+                    {conversation.lastMessage.isSendByMe &&
+                      conversation.lastMessage.isSeen && (
+                        <ChatAvatarStatus
+                          size={16}
+                          src={conversation.thumbnail}
+                        />
+                      )}
+                  </div>
                 </div>
               ))
             )}

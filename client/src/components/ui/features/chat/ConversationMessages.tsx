@@ -9,9 +9,7 @@ import { UploadIcon } from 'src/assets/icons';
 import ChatAction from 'src/components/ui/features/chat/ChatAction';
 import ChatAvatarStatus from 'src/components/ui/features/chat/ChatAvatarStatus';
 import ConsecutiveMessages from 'src/components/ui/features/chat/ConsecutiveMessages';
-import FullScreenMediaSlider, {
-  IMediaItem
-} from 'src/components/ui/shared/FullScreenMediaSlider';
+import FullScreenMediaSlider from 'src/components/ui/shared/FullScreenMediaSlider';
 import InfiniteScroller from 'src/components/ui/shared/infinite-scrollers';
 import LoadingSpinner from 'src/components/ui/shared/LoadingSpinner';
 import {
@@ -26,7 +24,7 @@ import { getVideoPoster } from 'src/utils/common.util';
 import { formatToConsecutive } from 'src/utils/message.util';
 import { showErrorToast } from 'src/utils/toast.util';
 import { validateUploadFiles } from 'src/utils/validations/file-validation';
-import UnsendMessageDialog from 'src/components/ui/features/chat/UnsendMessageDialog';
+import { useConversationStore } from 'src/store/useConversationStore';
 
 interface IConversationMessagesProps {
   conversationId: string;
@@ -35,10 +33,9 @@ interface IConversationMessagesProps {
 const ConversationMessages: FC<IConversationMessagesProps> = ({
   conversationId
 }) => {
+  const { messageMediaViewSlider, closeMessageMediaViewSlider } =
+    useConversationStore();
   const [sendMessageFiles, setSendMessageFiles] = useState<TUploadFile[]>([]);
-  const [viewMediaList, setViewMediaList] = useState<IMediaItem[]>([]);
-  const [openMediaSlider, setOpenMediaSlider] = useState(false);
-  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
 
   const chatSocket = useSocketStore((state) => state.getSocket('/chat'));
   const {
@@ -108,6 +105,12 @@ const ConversationMessages: FC<IConversationMessagesProps> = ({
         conversationMessages.pages.flatMap((page) => page.data)
       )
     : [];
+
+  const handleMediaSliderOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      closeMessageMediaViewSlider();
+    }
+  };
 
   useEffect(() => {
     handleMarkMessageSeen();
@@ -185,11 +188,11 @@ const ConversationMessages: FC<IConversationMessagesProps> = ({
           />
         </div>
       )}
-      {openMediaSlider && (
+      {messageMediaViewSlider.isOpen && (
         <FullScreenMediaSlider
-          onOpenChange={setOpenMediaSlider}
-          mediaList={viewMediaList}
-          initialIndex={activeMediaIndex}
+          onOpenChange={handleMediaSliderOpenChange}
+          mediaList={messageMediaViewSlider.mediaList}
+          initialIndex={messageMediaViewSlider.initialIndex}
         />
       )}
     </div>

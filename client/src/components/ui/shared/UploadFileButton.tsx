@@ -50,6 +50,9 @@ const UploadFileButton: FC<IUploadFileButtonProps> = ({
       return;
     }
     onFileChange(event);
+
+    // Reset input value after processing to allow selecting the same file again
+    event.target.value = '';
   };
 
   return (

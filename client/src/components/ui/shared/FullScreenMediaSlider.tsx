@@ -9,10 +9,11 @@ import 'swiper/css';
 import { Button } from 'src/components/ui/shadcn-ui/button';
 import VideoPlayer from 'src/components/ui/shared/VideoPlayer';
 import { cn } from 'src/utils/common.util';
+import { EMessageMediaType } from 'src/types/api/model.type';
 
 export interface IMediaItem {
   id: string;
-  type: 'PHOTO' | 'VIDEO' | 'AUDIO' | 'FILE';
+  type: EMessageMediaType;
   url: string;
 }
 
@@ -52,7 +53,7 @@ const FullScreenMediaSlider: React.FC<FullScreenMediaSliderProps> = ({
       <button
         onClick={() => swiperRef.current?.slidePrev()}
         className={cn(
-          'absolute left-4 z-50 rounded-full bg-[hsl(240,3.7%,15.9%)] p-2 text-white shadow-lg',
+          'absolute left-4 z-50 rounded-full bg-[hsl(240,3.7%,15.9%)] p-2 text-white shadow-lg cursor-pointer',
           isBeginning && 'hidden'
         )}
       >
@@ -79,7 +80,7 @@ const FullScreenMediaSlider: React.FC<FullScreenMediaSliderProps> = ({
       >
         {mediaList.map((media, index) => (
           <SwiperSlide key={index}>
-            {media.type === 'PHOTO' ? (
+            {media.type === EMessageMediaType.PHOTO ? (
               <Image
                 fill
                 src={media.url}
@@ -108,7 +109,7 @@ const FullScreenMediaSlider: React.FC<FullScreenMediaSliderProps> = ({
       <button
         onClick={() => swiperRef.current?.slideNext()}
         className={cn(
-          'absolute right-4 z-10 rounded-full bg-[hsl(240,3.7%,15.9%)] p-2 text-white shadow-lg',
+          'absolute right-4 z-10 rounded-full bg-[hsl(240,3.7%,15.9%)] p-2 text-white shadow-lg cursor-pointer',
           isEnd && 'hidden'
         )}
       >
@@ -117,7 +118,7 @@ const FullScreenMediaSlider: React.FC<FullScreenMediaSliderProps> = ({
       <Button
         size="icon"
         variant="ghost"
-        className="absolute right-4 top-4 z-50 rounded-full bg-[hsl(240,3.7%,15.9%)] hover:bg-[hsl(240,3.7%,15.9%)]"
+        className="absolute right-4 top-4 z-50 rounded-full bg-[hsl(240,3.7%,15.9%)] hover:bg-[hsl(240,3.7%,15.9%)] cursor-pointer"
         onClick={() => onOpenChange(false)}
       >
         <XIcon size={24} color="white" />

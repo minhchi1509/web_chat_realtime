@@ -151,6 +151,7 @@ export class ChatService {
       conversationParticipants: Array<{
         userId: string;
         user: { fullName: string };
+        lastSeenMessageAt: Date | null;
       }>;
     },
     userId: string
@@ -160,6 +161,7 @@ export class ChatService {
         conversation.id,
         userId
       );
+
     // Find the last message not deleted by current user
     const lastMessage = await this.prismaService.message.findFirst({
       where: {
@@ -217,6 +219,12 @@ export class ChatService {
     }
 
     // Prepare preview content based on message type
+    const partner = conversation.conversationParticipants?.find(
+      (p) => p.userId !== userId
+    );
+    const currentUserParticipant = conversation.conversationParticipants?.find(
+      (p) => p.userId === userId
+    );
     const isMessageSentByCurrentUser = lastMessage.sender?.userId === userId;
     const isGroupChat = lastMessage.conversation.isGroupChat;
     let previewContent = '';
@@ -231,11 +239,15 @@ export class ChatService {
     } else {
       switch (lastMessage.type) {
         case MessageType.TEXT:
-          previewContent = `${senderFullName}: ${lastMessage.content}`;
+          previewContent = conversation.isGroupChat
+            ? `${senderFullName}: ${lastMessage.content}`
+            : `${isMessageSentByCurrentUser ? 'You: ' : ''}${lastMessage.content}`;
           break;
 
         case MessageType.ICON:
-          previewContent = `${senderFullName}: ${lastMessage.content}`;
+          previewContent = conversation.isGroupChat
+            ? `${senderFullName}: ${lastMessage.content}`
+            : `${isMessageSentByCurrentUser ? 'You: ' : ''}${lastMessage.content}`;
           break;
 
         case MessageType.MEDIA: {
@@ -313,9 +325,6 @@ export class ChatService {
         case MessageType.CALL: {
           // Call only for private conversations
           if (!isGroupChat) {
-            const partner = conversation.conversationParticipants?.find(
-              (p) => p.userId !== userId
-            );
             const partnerFullName = partner?.user.fullName || 'Unknown';
 
             if (lastMessage.callStatus === 'MISSED') {
@@ -336,11 +345,18 @@ export class ChatService {
       }
     }
 
+    const isSendByMe = lastMessage.sender?.userId === userId;
+    const isSeen = conversation.isGroupChat
+      ? false
+      : isSendByMe
+        ? (partner?.lastSeenMessageAt?.getTime() || 0) >
+          lastMessage.createdAt.getTime()
+        : (currentUserParticipant?.lastSeenMessageAt?.getTime() || 0) >
+          lastMessage.createdAt.getTime();
     return {
       id: lastMessage.id,
-      isSeen: lastMessage.lastSeenBy.some(
-        (lastSeenBy) => lastSeenBy.userId === userId
-      ),
+      isSeen,
+      isSendByMe,
       createdAt: lastMessage.createdAt,
       previewContent: previewContent.replace(/^\s*\w/, (char) =>
         char.toUpperCase()

@@ -214,7 +214,7 @@ export class ChatController {
       messageId,
       userId
     );
-	await this.chatSocketService.sendNotificationToConversationMembers(
+    await this.chatSocketService.sendNotificationToConversationMembers(
       conversationId,
       SOCKET_EVENTS_NAME_TO_CLIENT.CHAT.CONVERSATION_DETAIL_UPDATED,
       { conversationId }

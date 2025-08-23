@@ -4,6 +4,7 @@ import { TGetListResponse } from 'src/types/common.type';
 type TLastMessageResponse = {
   id: string;
   isSeen: boolean;
+  isSendByMe: boolean;
   createdAt: string;
   previewContent: string;
 };
