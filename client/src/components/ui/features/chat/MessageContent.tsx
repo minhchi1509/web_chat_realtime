@@ -34,7 +34,7 @@ const MessageContent: FC<IMessageContentProps> = ({
 
   const mediaType = message.mediaList?.[0]?.type;
 
-  const renderMessageByType = () => {
+  const renderMessageContentByType = () => {
     const { isRevokedForEveryone, type: messageType } = message;
     if (isRevokedForEveryone) {
       return <RevokedMessageRender isMessageSendByMe={isMessageSendByMe} />;
@@ -78,6 +78,11 @@ const MessageContent: FC<IMessageContentProps> = ({
           </div>
         )}
         <div className={cn('flex flex-col')}>
+          {isFirstMessage && !isMessageSendByMe && !message.replyToMessage && (
+            <span className="text-xs text-muted-foreground my-1">
+              {message.sender?.profile.fullName}
+            </span>
+          )}
           {/* <div className=" w-[250px] h-[40px] bg-red-500 rounded-3xl translate-y-3">
             UI Reply tin nhắn
           </div> */}
@@ -109,7 +114,7 @@ const MessageContent: FC<IMessageContentProps> = ({
                         })
                 )}
               >
-                {renderMessageByType()}
+                {renderMessageContentByType()}
               </div>
               {message.reactionsData.total > 0 && (
                 <MessageReactionDetail

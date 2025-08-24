@@ -10,13 +10,13 @@ import {
 } from 'src/components/ui/shadcn-ui/dialog';
 import { ScrollArea, ScrollBar } from 'src/components/ui/shadcn-ui/scroll-area';
 import { removeMessageEmotion } from 'src/services/chat.service';
-import { useSessionUserStore } from 'src/store/useSessionUserStore';
 import { TMessageReactionsData } from 'src/types/api/chat/get-conversation-messages.type';
 import { TMessageEmotionResponse } from 'src/types/api/model.type';
 import { TErrorData } from 'src/types/error-response.type';
 import { cn } from 'src/utils/common.util';
 import {
   getEmojiDisplayUrl,
+  isCurrentUser,
   sortMessageReactions
 } from 'src/utils/message.util';
 import { showErrorToast } from 'src/utils/toast.util';
@@ -32,7 +32,6 @@ const MessageReactionDetail: FC<IMessageReactionDetailProps> = ({
   conversationId,
   reactionsData
 }) => {
-  const { user } = useSessionUserStore();
   const [openReactionsDialog, setOpenReactionsDialog] = React.useState(false);
   const [selectedTabKey, setSelectedTabKey] = React.useState<string>('ALL');
 
@@ -45,7 +44,7 @@ const MessageReactionDetail: FC<IMessageReactionDetailProps> = ({
   };
 
   const handleRemoveReaction = async (reaction: TMessageEmotionResponse) => {
-    if (reaction.participant.profile.id !== user.id) return;
+    if (!isCurrentUser(reaction.participant.profile.id)) return;
     try {
       await removeMessageEmotion({ messageId, conversationId });
     } catch (error) {
@@ -168,7 +167,7 @@ const MessageReactionDetail: FC<IMessageReactionDetailProps> = ({
                       <span className="text-[15px] font-medium text-[#080809] dark:text-[#e4e6eb]">
                         {reaction.participant.profile.fullName}
                       </span>
-                      {reaction.participant.profile.id === user.id && (
+                      {isCurrentUser(reaction.participant.profile.id) && (
                         <span className="text-muted-foreground text-xs line-clamp-1">
                           Click to remove
                         </span>

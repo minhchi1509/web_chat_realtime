@@ -1,10 +1,9 @@
-import React, { FC } from 'react';
+import { FC } from 'react';
 
-import ChatAvatarStatus from 'src/components/ui/features/chat/ChatAvatarStatus';
 import MessageContent from 'src/components/ui/features/chat/MessageContent';
-import { useSessionUserStore } from 'src/store/useSessionUserStore';
 import { TConversationMessageResponse } from 'src/types/api/chat/get-conversation-messages.type';
-import { cn, formatMessageTimeLine } from 'src/utils/common.util';
+import { formatMessageTimeLine } from 'src/utils/common.util';
+import { isCurrentUser } from 'src/utils/message.util';
 
 interface IConsecutiveMessagesProps {
   messages: (TConversationMessageResponse & {
@@ -12,9 +11,7 @@ interface IConsecutiveMessagesProps {
   })[];
 }
 const ConsecutiveMessages: FC<IConsecutiveMessagesProps> = ({ messages }) => {
-  const { user } = useSessionUserStore();
-
-  const isMessageSendByMe = messages[0].sender?.profile.id === user.id;
+  const isMessageSendByMe = isCurrentUser(messages[0].sender?.profile.id);
 
   return (
     <div className="flex w-full max-w-full flex-col">

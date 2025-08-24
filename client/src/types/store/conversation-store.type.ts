@@ -1,4 +1,5 @@
 import { IMediaItem } from 'src/components/ui/shared/FullScreenMediaSlider';
+import { TConversationMessageResponse } from 'src/types/api/chat/get-conversation-messages.type';
 
 export type TCurrentMessageActions = {
   messageId: string;
@@ -17,6 +18,7 @@ export type TMessageMediaViewSlider = {
 export type TConversationStore = {
   currentMessageActions: TCurrentMessageActions;
   messageMediaViewSlider: TMessageMediaViewSlider;
+  currentReplyMessage: TConversationMessageResponse | null;
 
   openMessageActionsPopover: (
     messageId: string,
@@ -28,4 +30,7 @@ export type TConversationStore = {
     currentIndex?: number
   ) => void;
   closeMessageMediaViewSlider: () => void;
+  setCurrentReplyMessage: (
+    message: TConversationMessageResponse | null
+  ) => void;
 };

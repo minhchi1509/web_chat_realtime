@@ -1,5 +1,5 @@
 import { FileIcon } from 'lucide-react';
-import React, { FC, useRef } from 'react';
+import React, { FC, useEffect, useRef } from 'react';
 
 import { Button, ButtonProps } from 'src/components/ui/shadcn-ui/button';
 import { showErrorToast } from 'src/utils/toast.util';
@@ -51,9 +51,34 @@ const UploadFileButton: FC<IUploadFileButtonProps> = ({
     }
     onFileChange(event);
 
-    // Reset input value after processing to allow selecting the same file again
+    // Reset input value sau khi xử lý để cho phép chọn lại cùng file
     event.target.value = '';
   };
+
+  // --- thêm handler cho paste ---
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      if (!e.clipboardData) return;
+      const files = Array.from(e.clipboardData.files);
+      if (files.length === 0) return;
+
+      // Fake input event để tái sử dụng handleFileChange
+      const dataTransfer = new DataTransfer();
+      files.forEach((f) => dataTransfer.items.add(f));
+
+      if (fileInputRef.current) {
+        fileInputRef.current.files = dataTransfer.files;
+
+        const changeEvent = new Event('change', { bubbles: true });
+        fileInputRef.current.dispatchEvent(changeEvent);
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => {
+      window.removeEventListener('paste', handlePaste);
+    };
+  }, []);
 
   return (
     <>

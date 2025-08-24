@@ -1,4 +1,5 @@
 import dayjs from 'dayjs';
+import { useSessionUserStore } from 'src/store/useSessionUserStore';
 
 import { TConversationMessageResponse } from 'src/types/api/chat/get-conversation-messages.type';
 import {
@@ -135,4 +136,9 @@ export const sortMessageReactions = (reactions: TMessageEmotionResponse[]) => {
   formattedReactions['ALL'] = reactions;
 
   return { formattedReactions, sortedReactionsKey };
+};
+
+export const isCurrentUser = (userId: string | undefined | null) => {
+  const { user } = useSessionUserStore();
+  return user.id === userId;
 };

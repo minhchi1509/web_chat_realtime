@@ -66,7 +66,7 @@ const SearchChatMembers = () => {
           />
         </PopoverAnchor>
         <PopoverContent
-          className="w-80 p-0"
+          className="w-[var(--radix-popover-trigger-width)] p-0"
           onOpenAutoFocus={(e) => e.preventDefault()}
           side="bottom"
           align="start"

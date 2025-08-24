@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { ReplyArrowIcon, ThreeDotVertical } from 'src/assets/icons';
+import { ReplyArrowIcon } from 'src/assets/icons';
 import MessageMoreAction from 'src/components/ui/features/chat/MessageMoreAction';
 import MessageReactionPopover from 'src/components/ui/features/chat/MessageReactionPopover';
 import {
@@ -8,6 +8,7 @@ import {
   TooltipContent,
   TooltipTrigger
 } from 'src/components/ui/shadcn-ui/tooltip';
+import { useConversationStore } from 'src/store/useConversationStore';
 import { TConversationMessageResponse } from 'src/types/api/chat/get-conversation-messages.type';
 import { cn } from 'src/utils/common.util';
 
@@ -24,6 +25,7 @@ const MessageActions: React.FC<IMessageActionsProps> = ({
   conversationId,
   className
 }) => {
+  const { setCurrentReplyMessage } = useConversationStore();
   const { canDropEmotion, canReply, canRevoke } = message.actionsOnMessage;
   return (
     <>
@@ -46,7 +48,12 @@ const MessageActions: React.FC<IMessageActionsProps> = ({
         {canReply && (
           <Tooltip>
             <TooltipTrigger>
-              <div className="flex size-7 cursor-pointer items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800">
+              <div
+                className="flex size-7 cursor-pointer items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                onClick={() => {
+                  setCurrentReplyMessage(message);
+                }}
+              >
                 <ReplyArrowIcon
                   width={16}
                   height={16}

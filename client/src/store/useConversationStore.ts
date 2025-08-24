@@ -15,6 +15,7 @@ export const useConversationStore = create<TConversationStore>((set, get) => ({
     initialIndex: 0,
     mediaList: []
   },
+  currentReplyMessage: null,
 
   openMessageActionsPopover: (messageId, actions) => {
     set(() => ({
@@ -59,5 +60,11 @@ export const useConversationStore = create<TConversationStore>((set, get) => ({
         initialIndex: 0,
         mediaList: []
       }
-    }))
+    })),
+
+  setCurrentReplyMessage: (message) => {
+    set(() => ({
+      currentReplyMessage: message
+    }));
+  }
 }));

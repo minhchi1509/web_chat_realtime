@@ -346,13 +346,14 @@ export class ChatService {
     }
 
     const isSendByMe = lastMessage.sender?.userId === userId;
-    const isSeen = conversation.isGroupChat
-      ? false
-      : isSendByMe
-        ? (partner?.lastSeenMessageAt?.getTime() || 0) >
-          lastMessage.createdAt.getTime()
-        : (currentUserParticipant?.lastSeenMessageAt?.getTime() || 0) >
+    const isSeen = !isSendByMe
+      ? (currentUserParticipant?.lastSeenMessageAt?.getTime() || 0) >
+        lastMessage.createdAt.getTime()
+      : isGroupChat
+        ? false
+        : (partner?.lastSeenMessageAt?.getTime() || 0) >
           lastMessage.createdAt.getTime();
+
     return {
       id: lastMessage.id,
       isSeen,
@@ -1086,6 +1087,12 @@ export class ChatService {
 
     await this.validateActionOnMessage(message, userParticipantId);
 
+    // Lấy các media của message để xóa
+    const messageMedias = await this.prismaService.messageMedia.findMany({
+      where: { messageId },
+      select: { url: true }
+    });
+
     // Xóa content, media của message nếu có
     const _revokeMessage = await this.prismaService.message.update({
       where: {
@@ -1093,6 +1100,7 @@ export class ChatService {
       },
       data: {
         content: null,
+        replyToMessageId: null,
         isRevokedForEveryone: true,
         messageMedias: {
           deleteMany: {
@@ -1115,7 +1123,7 @@ export class ChatService {
     });
 
     await this.cloudinaryQueueService.deleteFiles(
-      _revokeMessage.messageMedias.map((media) => media.url)
+      messageMedias.map((media) => media.url)
     );
 
     return {

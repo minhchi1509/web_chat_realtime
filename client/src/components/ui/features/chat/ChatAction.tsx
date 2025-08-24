@@ -4,6 +4,7 @@ import { useMutation } from '@tanstack/react-query';
 import { FileText, Play, Send, XIcon } from 'lucide-react';
 import Image from 'next/image';
 import React, { FC } from 'react';
+import ReplyingMessage from 'src/components/ui/features/chat/ReplyingMessage';
 
 import { Button } from 'src/components/ui/shadcn-ui/button';
 import { ScrollArea, ScrollBar } from 'src/components/ui/shadcn-ui/scroll-area';
@@ -66,13 +67,9 @@ const ChatAction: FC<IChatActionProps> = ({
     });
 
   return (
-    <div className="flex flex-col">
-      <div
-        className={cn(
-          'flex p-2 border-t border-muted overflow-hidden',
-          !showElement && 'hidden'
-        )}
-      >
+    <div className="flex flex-col border-t border-muted overflow-hidden">
+      <ReplyingMessage />
+      <div className={cn('flex p-2 overflow-hidden', !showElement && 'hidden')}>
         <UploadFileButton
           className="mr-2 shrink-0 self-end"
           onFileChange={handleChangeFile}
@@ -140,12 +137,12 @@ const ChatAction: FC<IChatActionProps> = ({
               placeholder="Type your message here"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              // onKeyDown={(e) => {
-              //   if (e.key === 'Enter') {
-              //     e.preventDefault();
-              //     sendConversationMessage();
-              //   }
-              // }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault(); // chặn xuống dòng
+                  sendConversationMessage(); // gửi tin nhắn
+                }
+              }}
             />
           </div>
         </div>
