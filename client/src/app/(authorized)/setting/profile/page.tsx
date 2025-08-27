@@ -33,22 +33,28 @@ const ProfileSettingPage = () => {
 
   const { isPending: isUpdatingProfile, mutate: updateProfile } = useMutation({
     mutationFn: async (formValues: TEditProfileForm) => {
+      const { avatar, fullName } = formValues;
+      if (!avatar && !fullName) return;
       const formData = new FormData();
-      formData.append('fullName', formValues.fullName || '');
-      if (formValues.avatar) {
-        formData.append('avatar', formValues.avatar);
+      if (fullName) {
+        formData.append('fullName', fullName);
+      }
+      if (avatar) {
+        formData.append('avatar', avatar);
       }
       return userService.updateUserProfile(formData);
     },
     onSuccess: async (response) => {
-      await queryClient.invalidateQueries({
-        queryKey: [EQueryKey.USER_PROFILE]
-      });
-      form.reset({
-        fullName: response.updatedUser.fullName,
-        avatar: undefined
-      });
-      showSuccessToast(response.message);
+      if (response) {
+        await queryClient.invalidateQueries({
+          queryKey: [EQueryKey.USER_PROFILE]
+        });
+        form.reset({
+          fullName: response.updatedUser.fullName,
+          avatar: undefined
+        });
+        showSuccessToast(response.message);
+      }
     },
     onError: () => {
       showErrorToast('Update profile failed!');

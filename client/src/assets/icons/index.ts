@@ -11,6 +11,7 @@ import UploadIcon from './upload.svg';
 import WarningIcon from './warning.svg';
 import XIcon from './x-icon.svg';
 import PlusIcon from './plus.svg';
+import AttachmentIcon from './attachment.svg';
 
 export {
   AppLogo,
@@ -25,5 +26,6 @@ export {
   UploadIcon,
   WarningIcon,
   XIcon,
-  PlusIcon
+  PlusIcon,
+  AttachmentIcon
 };

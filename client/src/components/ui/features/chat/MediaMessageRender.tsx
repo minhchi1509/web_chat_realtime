@@ -17,7 +17,8 @@ const MediaMessageRender: React.FC<IMediaMessageRenderProps> = ({
   message,
   isMessageSendByMe
 }) => {
-  const { openMessageMediaViewSlider } = useConversationStore();
+  const { openMessageMediaViewSlider, activeParentMessageId } =
+    useConversationStore();
   const senderDisplayName = isMessageSendByMe
     ? 'You'
     : message.sender?.profile.fullName;
@@ -30,9 +31,12 @@ const MediaMessageRender: React.FC<IMediaMessageRenderProps> = ({
     );
   };
 
+  const isMessageActive = activeParentMessageId === message.id;
+
   if (mediaType === EMessageMediaType.PHOTO) {
     return (
       <div
+        id={`message-${message.id}`}
         className={cn(
           'flex flex-col overflow-hidden rounded-[inherit]',
           isMessageSendByMe ? 'items-end' : 'items-start'
@@ -46,7 +50,11 @@ const MediaMessageRender: React.FC<IMediaMessageRenderProps> = ({
           {!message.replyToMessage && (
             <span className="mb-1 mt-2 text-xs text-[rgb(101,104,108)] dark:text-[rgb(176,179,184)]">{`${senderDisplayName} sent ${message.mediaList.length} photo${message.mediaList.length > 1 ? 's' : ''}`}</span>
           )}
-          <div className="relative flex flex-wrap gap-1">
+          <div
+            className={cn('relative flex flex-wrap gap-1', {
+              'border-2 border-white': isMessageActive
+            })}
+          >
             {message.mediaList.map((mediaItem, idx) => (
               <img
                 key={idx}
@@ -65,6 +73,7 @@ const MediaMessageRender: React.FC<IMediaMessageRenderProps> = ({
   if (mediaType === EMessageMediaType.VIDEO) {
     return (
       <div
+        id={`message-${message.id}`}
         className="relative size-fit cursor-pointer"
         onClick={() => handleOpenMediaSlider(0)}
       >
@@ -73,7 +82,9 @@ const MediaMessageRender: React.FC<IMediaMessageRenderProps> = ({
           height={125}
           src={message.mediaList[0].url.replaceAll('.mp4', '.jpg')}
           alt="media"
-          className="aspect-square rounded-lg object-cover"
+          className={cn('aspect-square rounded-lg object-cover', {
+            'border-2 border-white': isMessageActive
+          })}
         />
         <div className="absolute inset-0 m-auto size-fit rounded-full bg-black/50 p-3">
           <Play className="text-white" size={20} fill="white" />
@@ -84,7 +95,13 @@ const MediaMessageRender: React.FC<IMediaMessageRenderProps> = ({
 
   return (
     <div
-      className="w-fit max-w-[564px] cursor-pointer overflow-hidden rounded-[inherit]"
+      id={`message-${message.id}`}
+      className={cn(
+        'w-fit max-w-[564px] cursor-pointer overflow-hidden rounded-[inherit]',
+        {
+          'border-2 border-white': isMessageActive
+        }
+      )}
       onClick={() =>
         downloadFileFromUrl(
           message.mediaList[0].url,

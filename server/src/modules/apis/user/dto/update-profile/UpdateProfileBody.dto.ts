@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString, MinLength, ValidateIf } from 'class-validator';
+import { IsOptional, IsString, MinLength } from 'class-validator';
 import {
   HasMimeType,
   IsFile,
@@ -11,7 +11,6 @@ import { MAX_AVATAR_FILE_SIZE } from 'src/common/constants/file.constant';
 
 export class UpdateProfileBodyDTO {
   @IsOptional()
-  @ValidateIf((o) => o.avatar)
   @ApiProperty({ type: 'string', format: 'binary' })
   @HasMimeType(['image/*'], { message: 'Avatar must be an image' })
   @MaxFileSize(MAX_AVATAR_FILE_SIZE, {
@@ -21,7 +20,6 @@ export class UpdateProfileBodyDTO {
   avatar?: MemoryStoredFile;
 
   @IsOptional()
-  @ValidateIf((o) => o.fullName)
   @MinLength(1)
   @IsString()
   fullName?: string;

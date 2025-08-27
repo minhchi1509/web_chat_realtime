@@ -5,6 +5,7 @@ import ChatAvatarStatus from 'src/components/ui/features/chat/ChatAvatarStatus';
 import MediaMessageRender from 'src/components/ui/features/chat/MediaMessageRender';
 import MessageActions from 'src/components/ui/features/chat/MessageActions';
 import MessageReactionDetail from 'src/components/ui/features/chat/MessageReactionDetail';
+import RepliedMessage from 'src/components/ui/features/chat/RepliedMessage';
 import RevokedMessageRender from 'src/components/ui/features/chat/RevokedMessageRender';
 import TextMessageRender from 'src/components/ui/features/chat/TextMessageRender';
 import { useConversationStore } from 'src/store/useConversationStore';
@@ -83,9 +84,12 @@ const MessageContent: FC<IMessageContentProps> = ({
               {message.sender?.profile.fullName}
             </span>
           )}
-          {/* <div className=" w-[250px] h-[40px] bg-red-500 rounded-3xl translate-y-3">
-            UI Reply tin nhắn
-          </div> */}
+          {message.replyToMessage && (
+            <RepliedMessage
+              message={message}
+              isMessageSendByMe={isMessageSendByMe}
+            />
+          )}
           <div
             className={cn('flex items-center', {
               'flex-row-reverse': isMessageSendByMe

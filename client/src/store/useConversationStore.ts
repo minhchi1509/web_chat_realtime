@@ -16,6 +16,7 @@ export const useConversationStore = create<TConversationStore>((set, get) => ({
     mediaList: []
   },
   currentReplyMessage: null,
+  activeParentMessageId: null,
 
   openMessageActionsPopover: (messageId, actions) => {
     set(() => ({
@@ -65,6 +66,12 @@ export const useConversationStore = create<TConversationStore>((set, get) => ({
   setCurrentReplyMessage: (message) => {
     set(() => ({
       currentReplyMessage: message
+    }));
+  },
+
+  setActiveParentMessageId: (messageId) => {
+    set(() => ({
+      activeParentMessageId: messageId
     }));
   }
 }));

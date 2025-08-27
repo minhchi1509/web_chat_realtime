@@ -167,6 +167,7 @@ const ConversationMessages: FC<IConversationMessagesProps> = ({
           )}
 
           <InfiniteScroller
+            id="message-infinite-scroller"
             fetchNextPage={fetchNextPageMessages}
             hasNextPage={hasMoreMessages}
             className="flex flex-1 flex-col-reverse gap-2 overflow-auto pb-2 pl-4 pr-2 pt-4"

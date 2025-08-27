@@ -1,13 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-expressions */
-/* eslint-disable tailwindcss/migration-from-tailwind-2 */
 import { useMutation } from '@tanstack/react-query';
-import { FileText, Play, Send, XIcon } from 'lucide-react';
-import Image from 'next/image';
+import { Send } from 'lucide-react';
 import React, { FC } from 'react';
 import ReplyingMessage from 'src/components/ui/features/chat/ReplyingMessage';
+import SendMessageFilePreview from 'src/components/ui/features/chat/SendMessageFilePreview';
 
 import { Button } from 'src/components/ui/shadcn-ui/button';
-import { ScrollArea, ScrollBar } from 'src/components/ui/shadcn-ui/scroll-area';
 import { Textarea } from 'src/components/ui/shadcn-ui/textarea';
 import UploadFileButton from 'src/components/ui/shared/UploadFileButton';
 import {
@@ -15,9 +13,10 @@ import {
   MAX_MESSAGE_FILE_SIZE
 } from 'src/constants/variables';
 import { chatService } from 'src/services';
+import { useConversationStore } from 'src/store/useConversationStore';
 import { TUploadFile } from 'src/types/common.type';
 import { TErrorResponse } from 'src/types/error-response.type';
-import { cn } from 'src/utils/common.util';
+import { cn, delay, scrollToBottom } from 'src/utils/common.util';
 import { showErrorToast } from 'src/utils/toast.util';
 
 interface IChatActionProps {
@@ -37,6 +36,11 @@ const ChatAction: FC<IChatActionProps> = ({
   showElement = true,
   conversationId
 }) => {
+  const {
+    currentReplyMessage,
+    setCurrentReplyMessage,
+    setActiveParentMessageId
+  } = useConversationStore();
   const [message, setMessage] = React.useState<string>('');
   const textAreaMessageRef = React.useRef<HTMLTextAreaElement>(null);
 
@@ -52,6 +56,8 @@ const ChatAction: FC<IChatActionProps> = ({
       mutationFn: async () => {
         const formData = new FormData();
         message && formData.append('content', message);
+        currentReplyMessage?.id &&
+          formData.append('parentMessageId', currentReplyMessage.id);
         messageFiles.forEach((file) => {
           formData.append('messageFiles', file.originalFileObject);
         });
@@ -60,9 +66,13 @@ const ChatAction: FC<IChatActionProps> = ({
       onError: (error: TErrorResponse) => {
         showErrorToast(error.message);
       },
-      onSuccess: () => {
+      onSuccess: async () => {
         setMessage('');
         onRemoveAllFiles();
+        setCurrentReplyMessage(null);
+        setActiveParentMessageId(null);
+        await delay(0.1);
+        scrollToBottom(document.getElementById('message-infinite-scroller')!);
       }
     });
 
@@ -81,53 +91,10 @@ const ChatAction: FC<IChatActionProps> = ({
         <div className="flex-1 overflow-hidden bg-[#F0F2F5] dark:bg-zinc-800 rounded-xl px-3 py-2">
           <div className="flex flex-col">
             {messageFiles.length > 0 && (
-              <ScrollArea className="pb-2">
-                <div className="flex gap-4">
-                  {messageFiles.map((file, index) => {
-                    const isVideoFile =
-                      file.originalFileObject.type.includes('video/');
-                    const isImageFile =
-                      file.originalFileObject.type.includes('image/');
-                    return (
-                      <div key={index} className="relative shrink-0 mt-2">
-                        {(isVideoFile || isImageFile) && (
-                          <Image
-                            src={file.previewUrl}
-                            alt="preview-file"
-                            width={48}
-                            height={48}
-                            className="aspect-square rounded-lg object-cover"
-                          />
-                        )}
-                        {isVideoFile && (
-                          <div className="absolute inset-0 m-auto size-fit rounded-full bg-black bg-opacity-50 p-1">
-                            <Play
-                              className="text-white"
-                              size={12}
-                              fill="white"
-                            />
-                          </div>
-                        )}
-                        {!isVideoFile && !isImageFile && (
-                          <div className="flex items-center justify-center gap-2 rounded-lg bg-[#C9CCD1] dark:bg-black p-3">
-                            <FileText size={20} />
-                            <span className="text-xs">
-                              {file.originalFileObject.name}
-                            </span>
-                          </div>
-                        )}
-                        <div
-                          className="absolute -right-2 -top-2 size-fit rounded-full bg-white dark:bg-zinc-700 p-1 duration-200 hover:cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600"
-                          onClick={() => onRemoveFile(file.id)}
-                        >
-                          <XIcon size={12} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <ScrollBar orientation="horizontal" />
-              </ScrollArea>
+              <SendMessageFilePreview
+                messageFiles={messageFiles}
+                onRemoveFile={onRemoveFile}
+              />
             )}
           </div>
           <div className="flex">

@@ -195,3 +195,10 @@ export const truncateString = (str: string, maxLength: number) => {
   if (str.length <= maxLength) return str;
   return str.slice(0, maxLength) + '...';
 };
+
+export const scrollToBottom = (element: HTMLElement) => {
+  element.scrollTo({
+    top: element.scrollHeight,
+    behavior: 'smooth'
+  });
+};

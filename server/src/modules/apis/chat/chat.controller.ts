@@ -33,7 +33,6 @@ import { GetConversationDetailsResponseDTO } from 'src/modules/apis/chat/dto/get
 import { GetConversationMessageResponseDTO } from 'src/modules/apis/chat/dto/get-conversation-messages/GetConversationMessageResponse.dto';
 import { GetConversationResponseDTO } from 'src/modules/apis/chat/dto/get-conversations/GetConversationResponse.dto';
 import { SendConversationMessageDTO } from 'src/modules/apis/chat/dto/send-conversation-message/SendConversationMessageBody.dto';
-import { SendConversationMessageResponseDTO } from 'src/modules/apis/chat/dto/send-conversation-message/SendConversationMessageResponse.dto';
 import { ChatSocketService } from 'src/modules/web-socket/chat/chat-socket.service';
 
 @Controller('chat')
@@ -106,7 +105,7 @@ export class ChatController {
     @Param('conversationId') conversationId: string,
     @Body() body: SendConversationMessageDTO,
     @UserId() userId: string
-  ): Promise<SendConversationMessageResponseDTO> {
+  ): Promise<MessageResponseDTO> {
     const sentMessage = await this.chatService.sendConversationMessage(
       conversationId,
       body.parentMessageId,
@@ -118,7 +117,7 @@ export class ChatController {
       SOCKET_EVENTS_NAME_TO_CLIENT.CHAT.CONVERSATION_DETAIL_UPDATED,
       { conversationId }
     );
-    return plainToInstance(SendConversationMessageResponseDTO, sentMessage);
+    return plainToInstance(MessageResponseDTO, sentMessage);
   }
 
   @Get('/:conversationId/messages')

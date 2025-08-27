@@ -3,8 +3,9 @@ import {
   ArrayMaxSize,
   IsArray,
   IsOptional,
+  IsString,
   IsUUID,
-  ValidateIf
+  MinLength
 } from 'class-validator';
 import { IsFile, MaxFileSize, MemoryStoredFile } from 'nestjs-form-data';
 
@@ -29,10 +30,11 @@ export class SendConversationMessageDTO {
 
   @IsOptional()
   @Trim()
+  @IsString()
+  @MinLength(1)
   content?: string;
 
   @IsOptional()
-  @ValidateIf((o) => o.parentMessageId)
   @IsUUID('4')
   parentMessageId?: string;
 }

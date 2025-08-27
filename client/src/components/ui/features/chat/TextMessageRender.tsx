@@ -3,6 +3,7 @@ import Link from 'next/link';
 import React from 'react';
 
 import { URL_REGEX } from 'src/constants/variables';
+import { useConversationStore } from 'src/store/useConversationStore';
 import { TConversationMessageResponse } from 'src/types/api/chat/get-conversation-messages.type';
 import { EMessageType } from 'src/types/api/model.type';
 import { cn } from 'src/utils/common.util';
@@ -66,15 +67,19 @@ const TextMessageRender: React.FC<ITextMessageRenderProps> = ({
   message,
   isMessageSendByMe
 }) => {
+  const { activeParentMessageId } = useConversationStore();
   const isMessageIcon = message.type === EMessageType.ICON;
   const isMessageContainLink = Boolean(message.linkMetadata);
+  const isMessageActive = activeParentMessageId === message.id;
 
   return (
     <div
+      id={`message-${message.id}`}
       className={cn(
         'flex size-fit flex-col overflow-hidden rounded-[inherit]',
         {
-          'max-w-[300px]': message.linkMetadata
+          'max-w-[300px]': message.linkMetadata,
+          'border-2 border-white': isMessageActive
         }
       )}
     >
