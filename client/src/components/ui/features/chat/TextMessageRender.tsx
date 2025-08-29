@@ -79,7 +79,7 @@ const TextMessageRender: React.FC<ITextMessageRenderProps> = ({
         'flex size-fit flex-col overflow-hidden rounded-[inherit]',
         {
           'max-w-[300px]': message.linkMetadata,
-          'border-2 border-white': isMessageActive
+          'border-2 border-black dark:border-white': isMessageActive
         }
       )}
     >

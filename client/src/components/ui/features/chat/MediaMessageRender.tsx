@@ -52,7 +52,7 @@ const MediaMessageRender: React.FC<IMediaMessageRenderProps> = ({
           )}
           <div
             className={cn('relative flex flex-wrap gap-1', {
-              'border-2 border-white': isMessageActive
+              'border-2 border-black dark:border-white': isMessageActive
             })}
           >
             {message.mediaList.map((mediaItem, idx) => (
@@ -83,7 +83,7 @@ const MediaMessageRender: React.FC<IMediaMessageRenderProps> = ({
           src={message.mediaList[0].url.replaceAll('.mp4', '.jpg')}
           alt="media"
           className={cn('aspect-square rounded-lg object-cover', {
-            'border-2 border-white': isMessageActive
+            'border-2 border-black dark:border-white': isMessageActive
           })}
         />
         <div className="absolute inset-0 m-auto size-fit rounded-full bg-black/50 p-3">
@@ -99,7 +99,7 @@ const MediaMessageRender: React.FC<IMediaMessageRenderProps> = ({
       className={cn(
         'w-fit max-w-[564px] cursor-pointer overflow-hidden rounded-[inherit]',
         {
-          'border-2 border-white': isMessageActive
+          'border-2 border-black dark:border-white': isMessageActive
         }
       )}
       onClick={() =>
