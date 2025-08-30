@@ -28,7 +28,10 @@ import { formatMessageReactions } from 'src/common/utils/message.util';
 import { CreatedPrivateChatResponseDTO } from 'src/modules/apis/chat/dto/create-private-chat/CreatedPrivateChatResponse.dto';
 import { GetChatMemberResponseDTO } from 'src/modules/apis/chat/dto/get-chat-members/GetChatMemberResponse.dto';
 import { GetChatMembersQueryDTO } from 'src/modules/apis/chat/dto/get-chat-members/GetChatMembersQuery.dto';
-import { GetConversationDetailsResponseDTO } from 'src/modules/apis/chat/dto/get-conversation-details/GetConversationDetailsResponse.dto';
+import {
+  ConversationDetailParticipant,
+  GetConversationDetailsResponseDTO
+} from 'src/modules/apis/chat/dto/get-conversation-details/GetConversationDetailsResponse.dto';
 import {
   ActionsOnMessageDTO,
   GetConversationMessageResponseDTO,
@@ -415,7 +418,7 @@ export class ChatService {
 
           if (
             lastUserDeleteConversationAt &&
-            lastUserDeleteConversationAt > c.updatedAt
+            lastUserDeleteConversationAt.getTime() > c.updatedAt.getTime()
           ) {
             return undefined;
           }
@@ -679,6 +682,16 @@ export class ChatService {
         userId
       );
 
+    const userParticipant =
+      await this.prismaService.conversationParticipant.findUniqueOrThrow({
+        where: {
+          id: userParticipantId
+        },
+        select: {
+          lastDeleteConversationAt: true
+        }
+      });
+
     const [messages, pagination] = await this.prismaService.message
       .paginate({
         where: {
@@ -687,6 +700,9 @@ export class ChatService {
             none: {
               participantId: userParticipantId
             }
+          },
+          createdAt: {
+            gte: userParticipant.lastDeleteConversationAt || undefined
           }
         },
         include: {
@@ -898,11 +914,6 @@ export class ChatService {
         },
         include: {
           conversationParticipants: {
-            where: {
-              userId: {
-                not: userId
-              }
-            },
             select: {
               user: {
                 select: {
@@ -910,7 +921,9 @@ export class ChatService {
                   fullName: true,
                   avatar: true
                 }
-              }
+              },
+              id: true,
+              role: true
             }
           }
         }
@@ -918,19 +931,36 @@ export class ChatService {
       .catch(() => {
         throw new NotFoundException('Conversation not found');
       });
-    const partner = conversation.conversationParticipants[0];
+
+    const conversationParticipants: ConversationDetailParticipant[] =
+      await Promise.all(
+        conversation.conversationParticipants.map(async (cp) => ({
+          id: cp.id,
+          role: cp.role,
+          profile: { ...cp.user },
+          lastOnlineAt: await this.redisService.getUserLastOnlineAt(cp.user.id),
+          isOnline:
+            (await this.redisService.getUserSocketId(cp.user.id)).length > 0
+        }))
+      );
+
+    const partner = conversationParticipants.find(
+      (p) => p.profile.id !== userId
+    );
 
     if (!partner) {
-      throw new Error('Partner not found');
+      throw new Error('Can not get partner information');
     }
 
-    const isPartnerOnline =
-      (await this.redisService.getUserSocketId(partner.user.id)).length > 0;
     return {
       ...conversation,
-      name: conversation.name || partner.user.fullName,
-      thumbnail: conversation.thumbnail || partner.user.avatar,
-      isOnline: conversation.isGroupChat ? false : isPartnerOnline
+      name: conversation.isGroupChat
+        ? conversation.name || ''
+        : partner.profile.fullName,
+      thumbnail: conversation.isGroupChat
+        ? conversation.thumbnail || ''
+        : partner.profile.avatar,
+      participants: conversationParticipants
     };
   }
 

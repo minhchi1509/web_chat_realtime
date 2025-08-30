@@ -1,11 +1,11 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
 'use client';
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useMemo, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { v4 as uuidv4 } from 'uuid';
 
-import { UploadIcon } from 'src/assets/icons';
+import { ArrowLeftIcon, UploadIcon } from 'src/assets/icons';
 import ChatAction from 'src/components/ui/features/chat/ChatAction';
 import ChatAvatarStatus from 'src/components/ui/features/chat/ChatAvatarStatus';
 import ConsecutiveMessages from 'src/components/ui/features/chat/ConsecutiveMessages';
@@ -20,11 +20,14 @@ import useGetConversationDetails from 'src/hooks/cache/useGetConversationDetails
 import { useGetConversationMessages } from 'src/hooks/cache/useGetConversationMessages';
 import { useSocketStore } from 'src/store/useSocketStore';
 import { TUploadFile } from 'src/types/common.type';
-import { getVideoPoster } from 'src/utils/common.util';
+import { formatTimeAgo, getVideoPoster } from 'src/utils/common.util';
 import { formatToConsecutive } from 'src/utils/message.util';
 import { showErrorToast } from 'src/utils/toast.util';
 import { validateUploadFiles } from 'src/utils/validations/file-validation';
 import { useConversationStore } from 'src/store/useConversationStore';
+import { useSessionUserStore } from 'src/store/useSessionUserStore';
+import { useMediaQuery } from 'usehooks-ts';
+import { EMediaQuery } from 'src/constants/enum';
 
 interface IConversationMessagesProps {
   conversationId: string;
@@ -33,8 +36,14 @@ interface IConversationMessagesProps {
 const ConversationMessages: FC<IConversationMessagesProps> = ({
   conversationId
 }) => {
-  const { messageMediaViewSlider, closeMessageMediaViewSlider } =
-    useConversationStore();
+  const {
+    messageMediaViewSlider,
+    closeMessageMediaViewSlider,
+    setShowListConversationsBlock
+  } = useConversationStore();
+  const { user } = useSessionUserStore();
+  const isMobile = useMediaQuery(EMediaQuery.MOBILE);
+
   const [sendMessageFiles, setSendMessageFiles] = useState<TUploadFile[]>([]);
 
   const chatSocket = useSocketStore((state) => state.getSocket('/chat'));
@@ -112,6 +121,42 @@ const ConversationMessages: FC<IConversationMessagesProps> = ({
     }
   };
 
+  const showOnlineStatus = useMemo(() => {
+    if (!conversationDetails) return false;
+
+    const { isGroupChat, participants } = conversationDetails;
+
+    if (isGroupChat) {
+      const haveSomeUserOnline = participants.some((p) => p.isOnline);
+      return haveSomeUserOnline;
+    }
+
+    const partner = participants.find((p) => p.profile.id !== user.id);
+    return partner ? partner.isOnline : false;
+  }, [conversationDetails, user.id]);
+
+  const getConversationOnlineStatusText = useMemo(() => {
+    if (!conversationDetails) return '';
+
+    const { isGroupChat, participants } = conversationDetails;
+
+    if (isGroupChat) {
+      const totalUserOnline = participants.filter((p) => p.isOnline).length;
+      return totalUserOnline > 0
+        ? `${totalUserOnline} participants are active`
+        : '';
+    }
+
+    const partner = participants.find((p) => p.profile.id !== user.id);
+    return partner
+      ? partner.isOnline
+        ? 'Active now'
+        : partner.lastOnlineAt
+          ? `Active ${formatTimeAgo(partner.lastOnlineAt)} ago`
+          : ''
+      : '';
+  }, [conversationDetails, user.id]);
+
   useEffect(() => {
     handleMarkMessageSeen();
   }, [conversationId]);
@@ -134,17 +179,23 @@ const ConversationMessages: FC<IConversationMessagesProps> = ({
       {conversationDetails && (
         <div className="flex items-center border-b border-muted p-2 pl-4 shadow-sm">
           <div className="flex items-center">
+            {isMobile && (
+              <ArrowLeftIcon
+                className="mr-3 size-7 cursor-pointer"
+                onClick={() => setShowListConversationsBlock(true)}
+              />
+            )}
             <ChatAvatarStatus
               className="mr-3"
               src={conversationDetails.thumbnail}
               size={60}
-              isOnline={conversationDetails.isOnline}
+              isOnline={showOnlineStatus}
             />
             <div className="flex flex-col">
               <p className="text-lg font-medium">{conversationDetails.name}</p>
-              {conversationDetails.isOnline && (
-                <p className="text-xs text-muted-foreground">Active now</p>
-              )}
+              <p className="text-xs text-muted-foreground">
+                {getConversationOnlineStatusText}
+              </p>
             </div>
           </div>
         </div>

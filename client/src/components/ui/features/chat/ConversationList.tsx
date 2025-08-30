@@ -1,23 +1,29 @@
 'use client';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next-nprogress-bar';
-import React from 'react';
 
 import ChatAvatarStatus from 'src/components/ui/features/chat/ChatAvatarStatus';
 import InfiniteScroller from 'src/components/ui/shared/infinite-scrollers';
 import LoadingSpinner from 'src/components/ui/shared/LoadingSpinner';
 import useGetConversations from 'src/hooks/cache/useGetConversations';
 import { cn, formatTimeAgo } from 'src/utils/common.util';
+import { useConversationStore } from 'src/store/useConversationStore';
 
 const ConversationList = () => {
   const { push } = useRouter();
-  const params = useParams();
+  const params = useParams<{ conversationId: string }>();
+  const { setShowListConversationsBlock } = useConversationStore();
   const {
     data: allFetchedConversations,
     fetchNextPage,
     hasNextPage,
     isLoading
   } = useGetConversations({});
+
+  const handleClickOnConversation = (conversationId: string) => {
+    push(`/messages/${conversationId}`);
+    setShowListConversationsBlock(false);
+  };
 
   return (
     <div className="relative mt-3 flex flex-1 flex-col overflow-auto">
@@ -50,7 +56,7 @@ const ConversationList = () => {
                       'hover:bg-muted'
                   )}
                   key={index}
-                  onClick={() => push(`/messages/${conversation.id}`)}
+                  onClick={() => handleClickOnConversation(conversation.id)}
                 >
                   <div className="relative mr-3.5 shrink-0">
                     <ChatAvatarStatus

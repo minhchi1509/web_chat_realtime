@@ -41,7 +41,7 @@ const WebSocket: React.FC<IWebSocketProps> = ({
         onSocketUnmounted?.(socket);
       }
     };
-  }, [namespace, socket, addSocket, removeSocket, url, onSocketUnmounted]);
+  }, [namespace, socket, url]);
 
   return (
     <>

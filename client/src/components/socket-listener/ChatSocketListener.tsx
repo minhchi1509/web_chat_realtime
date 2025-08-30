@@ -11,9 +11,7 @@ const ChatSocketListener = ({ children }: PropsWithChildren) => {
   const queryClient = useQueryClient();
   const chatSocket = useSocketStore((state) => state.getSocket('/chat'));
   const params = useParams();
-  const conversationIdParam: string | undefined = params.conversationId as
-    | string
-    | undefined;
+  const conversationIdParam = params.conversationId as string | undefined;
 
   useEffect(() => {
     chatSocket.on('conversation_detail_updated', async (payload) => {

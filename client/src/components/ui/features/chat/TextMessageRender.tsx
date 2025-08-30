@@ -76,7 +76,7 @@ const TextMessageRender: React.FC<ITextMessageRenderProps> = ({
     <div
       id={`message-${message.id}`}
       className={cn(
-        'flex size-fit flex-col overflow-hidden rounded-[inherit]',
+        'flex size-fit flex-col overflow-hidden rounded-[inherit] max-w-full',
         {
           'max-w-[300px]': message.linkMetadata,
           'border-2 border-black dark:border-white': isMessageActive
@@ -93,8 +93,8 @@ const TextMessageRender: React.FC<ITextMessageRenderProps> = ({
         })}
       >
         <p
-          className={cn('text-[15px]', {
-            'break-all': isMessageContainLink,
+          className={cn('text-[15px] break-all', {
+            // 'break-all': isMessageContainLink,
             'text-[25px] leading-snug': isMessageIcon
           })}
         >

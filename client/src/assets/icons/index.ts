@@ -12,6 +12,7 @@ import WarningIcon from './warning.svg';
 import XIcon from './x-icon.svg';
 import PlusIcon from './plus.svg';
 import AttachmentIcon from './attachment.svg';
+import ArrowLeftIcon from './arrow-left.svg';
 
 export {
   AppLogo,
@@ -27,5 +28,6 @@ export {
   WarningIcon,
   XIcon,
   PlusIcon,
-  AttachmentIcon
+  AttachmentIcon,
+  ArrowLeftIcon
 };

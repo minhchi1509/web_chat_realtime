@@ -256,4 +256,20 @@ export class RedisService {
     }
     return participantId;
   };
+
+  setUserLastOnlineAt = async (userId: string, lastOnlineAt: Date) => {
+    await this.redis.set(
+      `user_last_online_at:${userId}`,
+      lastOnlineAt.toISOString()
+    );
+  };
+
+  getUserLastOnlineAt = async (userId: string) => {
+    const lastOnlineAt = await this.redis.get(`user_last_online_at:${userId}`);
+    return lastOnlineAt ? new Date(lastOnlineAt) : null;
+  };
+
+  deleteUserLastOnlineAt = async (userId: string) => {
+    await this.redis.del(`user_last_online_at:${userId}`);
+  };
 }

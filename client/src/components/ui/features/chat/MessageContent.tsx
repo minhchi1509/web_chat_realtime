@@ -8,10 +8,15 @@ import MessageReactionDetail from 'src/components/ui/features/chat/MessageReacti
 import RepliedMessage from 'src/components/ui/features/chat/RepliedMessage';
 import RevokedMessageRender from 'src/components/ui/features/chat/RevokedMessageRender';
 import TextMessageRender from 'src/components/ui/features/chat/TextMessageRender';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from 'src/components/ui/shadcn-ui/tooltip';
 import { useConversationStore } from 'src/store/useConversationStore';
 import { TConversationMessageResponse } from 'src/types/api/chat/get-conversation-messages.type';
 import { EMessageMediaType, EMessageType } from 'src/types/api/model.type';
-import { cn } from 'src/utils/common.util';
+import { cn, formatMessageTimeLine } from 'src/utils/common.util';
 
 interface IMessageContentProps {
   message: TConversationMessageResponse & {
@@ -63,7 +68,7 @@ const MessageContent: FC<IMessageContentProps> = ({
 
   return (
     <div className={cn('flex flex-col w-full group')}>
-      <div className={cn('flex', isMessageSendByMe && 'self-end')}>
+      <div className={cn('flex w-full', isMessageSendByMe && 'self-end')}>
         {!isMessageSendByMe && (
           <div
             className={cn('size-7 mr-2 shrink-0 self-end', {
@@ -71,14 +76,22 @@ const MessageContent: FC<IMessageContentProps> = ({
             })}
           >
             {isLastMessage && (
-              <ChatAvatarStatus
-                src={message?.sender?.profile.avatar || ''}
-                size={28}
-              />
+              <Tooltip>
+                <TooltipTrigger>
+                  <ChatAvatarStatus
+                    src={message?.sender?.profile.avatar || ''}
+                    size={28}
+                    className="cursor-pointer"
+                  />
+                </TooltipTrigger>
+                <TooltipContent align="center" side="left">
+                  {message?.sender?.profile.fullName}
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
         )}
-        <div className={cn('flex flex-col')}>
+        <div className={cn('flex flex-col flex-1 overflow-hidden')}>
           {isFirstMessage && !isMessageSendByMe && !message.replyToMessage && (
             <span className="text-xs text-muted-foreground my-1">
               {message.sender?.profile.fullName}
@@ -95,7 +108,7 @@ const MessageContent: FC<IMessageContentProps> = ({
               'flex-row-reverse': isMessageSendByMe
             })}
           >
-            <div className="flex flex-col">
+            <div className="flex flex-col max-w-full">
               <div
                 className={cn(
                   'relative',
@@ -144,12 +157,19 @@ const MessageContent: FC<IMessageContentProps> = ({
         <div className="flex justify-end">
           <div className="flex gap-2">
             {message.seenBy.map((participant) => (
-              <ChatAvatarStatus
-                key={participant.id}
-                src={participant.profile.avatar}
-                size={16}
-                className="cursor-pointer"
-              />
+              <Tooltip key={participant.id}>
+                <TooltipTrigger>
+                  <ChatAvatarStatus
+                    key={participant.id}
+                    src={participant.profile.avatar}
+                    size={16}
+                    className="cursor-pointer"
+                  />
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  {`Seen by ${participant.profile.fullName} at ${formatMessageTimeLine(participant.seenAt)}`}
+                </TooltipContent>
+              </Tooltip>
             ))}
           </div>
         </div>

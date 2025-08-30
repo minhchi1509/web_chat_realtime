@@ -69,6 +69,7 @@ export class ChatGateway
   async handleConnection(client: Socket) {
     const { sub: userId } = client.handshake.auth as TJWTPayload;
     await this.redisService.setUserSocketId(userId, client.id);
+    await this.redisService.deleteUserLastOnlineAt(userId);
     this.server.emit(SOCKET_EVENTS_NAME_TO_CLIENT.CHAT.USER_ACTIVITY_STATUS, {
       userId
     });
@@ -77,6 +78,7 @@ export class ChatGateway
   async handleDisconnect(client: Socket) {
     const { sub: userId } = client.handshake.auth as TJWTPayload;
     await this.redisService.deleteUserSocketId(userId, client.id);
+    await this.redisService.setUserLastOnlineAt(userId, new Date());
     this.server.emit(SOCKET_EVENTS_NAME_TO_CLIENT.CHAT.USER_ACTIVITY_STATUS, {
       userId
     });

@@ -57,7 +57,7 @@ const renderReplyMessage = (replyToMessage: TParentMessageResponse) => {
     return (
       <div
         className={cn(
-          'h-[45px] w-fit max-w-[467px] py-2 px-3 rounded-[inherit] bg-[rgba(0,0,0,.03)] dark:bg-[rgba(255,255,255,.12)] overflow-hidden'
+          'h-[45px] max-w-[467px] py-2 px-3 rounded-[inherit] bg-[rgba(0,0,0,.03)] dark:bg-[rgba(255,255,255,.12)] overflow-hidden'
         )}
       >
         <div className="text-[13px] text-muted-foreground pb-4">
@@ -123,7 +123,7 @@ const RepliedMessage: FC<IRepliedMessageProps> = ({
   };
 
   return (
-    <div className="translate-y-3">
+    <div className="translate-y-3 w-full">
       <div
         className={cn('flex flex-col gap-2', isMessageSendByMe && 'items-end')}
       >
@@ -135,7 +135,7 @@ const RepliedMessage: FC<IRepliedMessageProps> = ({
         </div>
         <div
           className={cn(
-            'rounded-[18px] cursor-pointer overflow-hidden',
+            'rounded-[18px] cursor-pointer overflow-hidden w-fit max-w-full',
             isMessageSendByMe ? 'rounded-br-[4px]' : 'rounded-bl-[4px]'
           )}
           onClick={handleClickOnParentMessage}

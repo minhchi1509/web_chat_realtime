@@ -20,6 +20,7 @@ export type TConversationStore = {
   messageMediaViewSlider: TMessageMediaViewSlider;
   currentReplyMessage: TConversationMessageResponse | null;
   activeParentMessageId: string | null;
+  showListConversationsBlock: boolean;
 
   openMessageActionsPopover: (
     messageId: string,
@@ -35,4 +36,5 @@ export type TConversationStore = {
     message: TConversationMessageResponse | null
   ) => void;
   setActiveParentMessageId: (messageId: string | null) => void;
+  setShowListConversationsBlock: (show: boolean) => void;
 };

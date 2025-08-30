@@ -17,6 +17,7 @@ export const useConversationStore = create<TConversationStore>((set, get) => ({
   },
   currentReplyMessage: null,
   activeParentMessageId: null,
+  showListConversationsBlock: true,
 
   openMessageActionsPopover: (messageId, actions) => {
     set(() => ({
@@ -72,6 +73,12 @@ export const useConversationStore = create<TConversationStore>((set, get) => ({
   setActiveParentMessageId: (messageId) => {
     set(() => ({
       activeParentMessageId: messageId
+    }));
+  },
+
+  setShowListConversationsBlock: (show) => {
+    set(() => ({
+      showListConversationsBlock: show
     }));
   }
 }));

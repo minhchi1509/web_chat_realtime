@@ -29,3 +29,9 @@ export enum ESocketEvent {
   USER_OFFLINE = 'user_offline',
   WS_EXCEPTION = 'ws_exception'
 }
+
+export enum EMediaQuery {
+  MOBILE = '(max-width: 767px)',
+  TABLET = '(min-width: 768px) and (max-width: 1023px)',
+  DESKTOP = '(min-width: 1024px)'
+}
