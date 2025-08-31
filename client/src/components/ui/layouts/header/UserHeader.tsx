@@ -4,7 +4,7 @@ import { useMutation } from '@tanstack/react-query';
 import { LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useRouter } from 'next-nprogress-bar';
+import { useRouter } from '@bprogress/next';
 import { useState } from 'react';
 
 import {

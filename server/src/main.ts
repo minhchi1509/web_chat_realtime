@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import { WinstonModule } from 'nest-winston';
 
 import { AppModule } from './app.module';
+import swaggerMetadata from './metadata';
 import { winstonLogger } from 'src/common/configs/logger.config';
 import {
   swaggerConfig,
@@ -28,6 +29,7 @@ async function bootstrap() {
   });
   app.use(cookieParser());
 
+  await SwaggerModule.loadPluginMetadata(swaggerMetadata);
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api/v1/swagger', app, document, swaggerOptions);
 

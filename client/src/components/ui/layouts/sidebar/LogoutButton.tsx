@@ -1,7 +1,7 @@
 'use client';
 import { useMutation } from '@tanstack/react-query';
 import { LogOut } from 'lucide-react';
-import { useRouter } from 'next-nprogress-bar';
+import { useRouter } from '@bprogress/next';
 import { FC, useState } from 'react';
 
 import { Button } from 'src/components/ui/shadcn-ui/button';

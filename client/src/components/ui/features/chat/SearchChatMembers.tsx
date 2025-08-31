@@ -2,7 +2,7 @@
 
 import { useMutation } from '@tanstack/react-query';
 import { Search } from 'lucide-react';
-import { useRouter } from 'next-nprogress-bar';
+import { useRouter } from '@bprogress/next';
 import React, { useState } from 'react';
 import { useDebounceCallback } from 'usehooks-ts';
 

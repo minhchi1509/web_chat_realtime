@@ -1,7 +1,7 @@
 'use client';
 
 import { MoveLeftIcon } from 'lucide-react';
-import { useRouter } from 'next-nprogress-bar';
+import { useRouter } from '@bprogress/next';
 import { FC } from 'react';
 
 import { Button } from 'src/components/ui/shadcn-ui/button';

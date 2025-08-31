@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import {
   IsEnum,
   IsNotEmpty,
@@ -27,5 +28,10 @@ export class TestSendNotificationBodyDTO {
 
   @IsEnum(EDevicePlatform)
   @IsOptional()
+  @ApiProperty({
+    enum: EDevicePlatform,
+    required: false,
+    default: EDevicePlatform.WEB
+  })
   platform: EDevicePlatform | 'all' = EDevicePlatform.WEB;
 }

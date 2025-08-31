@@ -1,5 +1,5 @@
 'use client';
-import { AppProgressBar as ProgressBar } from 'next-nprogress-bar';
+import { AppProgressProvider } from '@bprogress/next';
 import { PropsWithChildren } from 'react';
 
 import TanstackQueryProvider from './TanstackQueryProvider';
@@ -9,10 +9,10 @@ import { Toaster } from 'src/components/ui/shadcn-ui/sonner';
 const AppProvider = ({ children }: PropsWithChildren) => {
   return (
     <ThemesProvider attribute="class" defaultTheme="system" enableSystem>
-      <ProgressBar
+      <AppProgressProvider
         options={{ showSpinner: false }}
         shallowRouting
-        style={`#nprogress .bar {
+        style={`.bprogress .bar {
                   position: fixed;
                   z-index: 9999;
                   top: 0;
@@ -22,9 +22,10 @@ const AppProvider = ({ children }: PropsWithChildren) => {
                   height: 3px;
                 }
                 `}
-      />
+      >
+        <TanstackQueryProvider>{children}</TanstackQueryProvider>
+      </AppProgressProvider>
       <Toaster />
-      <TanstackQueryProvider>{children}</TanstackQueryProvider>
     </ThemesProvider>
   );
 };

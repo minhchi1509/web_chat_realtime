@@ -1,5 +1,5 @@
 'use client';
-import { useRouter } from 'next-nprogress-bar';
+import { useRouter } from '@bprogress/next';
 
 const HomePage = () => {
   const { push } = useRouter();

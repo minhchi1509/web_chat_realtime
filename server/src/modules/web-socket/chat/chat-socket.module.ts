@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { SocketEventEmitterService } from './socket-event-emitter.service';
 import { WebSocketMiddleware } from 'src/common/middlewares/websocket.middleware';
 import { PrismaModule } from 'src/modules/libs/prisma/prisma.module';
 import { RedisModule } from 'src/modules/libs/redis/redis.module';
@@ -10,7 +11,12 @@ import { ChatSocketService } from 'src/modules/web-socket/chat/chat-socket.servi
 
 @Module({
   imports: [RedisModule, PrismaModule, StrategyModule, TokenModule],
-  providers: [ChatGateway, ChatSocketService, WebSocketMiddleware],
+  providers: [
+    ChatGateway,
+    ChatSocketService,
+    WebSocketMiddleware,
+    SocketEventEmitterService
+  ],
   exports: [ChatSocketService]
 })
 export class ChatSocketModule {}

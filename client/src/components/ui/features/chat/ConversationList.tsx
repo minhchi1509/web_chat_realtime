@@ -1,6 +1,6 @@
 'use client';
 import { useParams } from 'next/navigation';
-import { useRouter } from 'next-nprogress-bar';
+import { useRouter } from '@bprogress/next';
 
 import ChatAvatarStatus from 'src/components/ui/features/chat/ChatAvatarStatus';
 import InfiniteScroller from 'src/components/ui/shared/infinite-scrollers';

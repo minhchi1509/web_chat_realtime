@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
-import { useRouter } from 'next-nprogress-bar';
+import { useRouter } from '@bprogress/next';
 import React, { useEffect, useState } from 'react';
 
 import { Button } from 'src/components/ui/shadcn-ui/button';

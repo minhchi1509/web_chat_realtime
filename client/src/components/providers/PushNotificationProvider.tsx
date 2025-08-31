@@ -1,7 +1,7 @@
 'use client';
 
 import { getMessaging, onMessage } from 'firebase/messaging';
-import { useRouter } from 'next-nprogress-bar';
+import { useRouter } from '@bprogress/next';
 import { FC, PropsWithChildren, useEffect } from 'react';
 import { toast } from 'sonner';
 

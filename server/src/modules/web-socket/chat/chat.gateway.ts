@@ -1,6 +1,4 @@
 import {
-  forwardRef,
-  Inject,
   Injectable,
   Logger,
   UseFilters,
@@ -18,6 +16,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 
+import { SocketEventEmitterService } from './socket-event-emitter.service';
 import {
   SOCKET_EVENTS_NAME_TO_CLIENT,
   SUBSCRIBED_SOCKET_EVENTS_NAME
@@ -52,10 +51,10 @@ export class ChatGateway
   @WebSocketServer() server: Server;
 
   constructor(
-    @Inject(forwardRef(() => ChatSocketService))
-    private chatSocketService: ChatSocketService,
     private websocketMiddleware: WebSocketMiddleware,
-    private redisService: RedisService
+    private redisService: RedisService,
+    private socketEventEmitter: SocketEventEmitterService,
+    private chatSocketService: ChatSocketService
   ) {}
 
   async afterInit() {
@@ -63,6 +62,8 @@ export class ChatGateway
     this.server.use((client, next) => {
       this.websocketMiddleware.verifyClient(client, next);
     });
+    // Set the server in the event emitter service
+    this.socketEventEmitter.setServer(this.server);
     this.logger.log('🚀 ChatGateway was established succesfully!');
   }
 
